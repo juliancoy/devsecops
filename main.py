@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 from typing import TypedDict, Annotated, List
+from uuid import uuid4
 
 from langchain.agents import Tool, AgentExecutor
 from langchain.agents import create_openai_tools_agent
@@ -14,6 +15,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph, add_messages
 from langgraph.prebuilt import ToolNode
+from langgraph.store.memory import InMemoryStore
 
 
 class QueryType(Enum):
@@ -29,7 +31,7 @@ class State(TypedDict):
     query_type: str
 
 
-def create_agent_executor(llm: BaseLanguageModel, tools: List[Tool], system_prompt: str) -> AgentExecutor:
+def create_agent_executor(llm: BaseLanguageModel, toollist: List[Tool], system_prompt: str) -> AgentExecutor:
     """Create an agent executor with the given LLM and tools."""
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
@@ -41,7 +43,7 @@ def create_agent_executor(llm: BaseLanguageModel, tools: List[Tool], system_prom
 
     return AgentExecutor.from_agent_and_tools(
         agent=agent,
-        tools=tools,
+        tools=toollist,
         handle_parsing_errors=True,
         max_iterations=3,
         verbose=True
@@ -109,8 +111,8 @@ class CodeNode:
 
             response = self.llm.invoke(messages)
             return {"messages": [response]}
-        except Exception as e:
-            print(f"Error in CodeNode processing: {str(e)}")
+        except Exception as ex:
+            print(f"Error in CodeNode processing: {str(ex)}")
             return {"messages": [AIMessage(
                 content="I encountered an error processing your code request. Could you please rephrase or try again?")]}
 
@@ -132,15 +134,29 @@ class ChatNode:
 
             response = self.agent.invoke({"input": content})
             return {"messages": [AIMessage(content=response["output"])]}
-        except Exception as e:
-            print(f"Error in ChatNode processing: {str(e)}")
+        except Exception as ex:
+            print(f"Error in ChatNode processing: {str(ex)}")
             return {"messages": [AIMessage(
                 content="I encountered an error processing your request. Could you please rephrase or try again?")]}
 
 
 def stream_graph_updates(u_input: str):
+    """Stream graph updates with proper checkpointing configuration."""
     try:
-        for event in graph.stream({"messages": [("user", u_input)], "query_type": ""}):
+        # Initial state
+        initial_state = {
+            "messages": [("user", u_input)],
+            "query_type": "",
+        }
+
+        config = {
+            "configurable": {
+                "thread_id": str(uuid4()),
+                "checkpoint_ns": "chat_interaction"
+            }
+        }
+
+        for event in graph.stream(initial_state, config=config):
             for value in event.values():
                 if "messages" in value:
                     if isinstance(value["messages"][-1], (HumanMessage, SystemMessage)):
@@ -149,8 +165,8 @@ def stream_graph_updates(u_input: str):
                         print("Assistant:", value["messages"][-1][1])
                     else:
                         print("Assistant:", value["messages"][-1])
-    except Exception as e:
-        print(f"Error in stream_graph_updates: {str(e)}")
+    except Exception as ex:
+        print(f"Error in stream_graph_updates: {str(ex)}")
 
 def load_env(file_path=".env"):
     with open(file_path, "r") as file:
@@ -255,9 +271,13 @@ if __name__ == "__main__":
         }
     )
     checkpointer = MemorySaver()
+    kvstore = InMemoryStore()
     # Compile graph
-    # graph = graph_builder.compile(checkpointer=checkpointer)
-    graph = graph_builder.compile()
+    graph = graph_builder.compile(
+        checkpointer=checkpointer,
+        store=kvstore
+    )
+    # graph = graph_builder.compile()
 
     print("Multi-LLM chat system initialized. Type 'quit' to exit.")
 
