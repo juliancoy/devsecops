@@ -33,7 +33,7 @@ def create_ollama_chat_node(model_name="deepseek-coder-v2"):
             "messages": new_state.messages
         }
 
-    chat_node = bind_tools(chat_node, tools=[tool_function])
+    # chat_node = bind_tools(chat_node, tools=[tool_function])
     return chat_node
 
 
@@ -61,7 +61,7 @@ def main():
     initial_state = ConversationState()
 
     # Add a human message
-    initial_state.add_message(HumanMessage(content="Tell me a joke about programming"))
+    initial_state.add_message(HumanMessage(content="Tell me a joke about plumbing"))
 
     # Run the conversation
     result = conversation_graph.invoke(initial_state)
