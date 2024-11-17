@@ -19,4 +19,5 @@ pip install langchain_community duckduckgo-search langchain-ollama
 
 ```shell
 pip install urllib3==1.26.5
+pip install langgraph==0.2.50
 ```
