@@ -226,3 +226,7 @@ cython_debug/
 /.idea/
 .DS_Store
 /gitlab-ce/
+
+.env.public
+.env.changeme
+.env.secret

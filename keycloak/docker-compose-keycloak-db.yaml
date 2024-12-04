@@ -1,0 +1,22 @@
+networks:
+  default:
+    name: arkavo
+services:
+  keycloakdb:
+    image: postgres:15-alpine
+    restart: always
+    user: postgres
+    environment:
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_USER: postgres
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloakdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  keycloakdb_data:
