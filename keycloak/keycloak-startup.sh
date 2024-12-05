@@ -31,7 +31,7 @@ done
 # Ensure the import directory exists and copy realm files
 mkdir -p "$KEYCLOAK_IMPORT_DIR"
 echo "Copying realm JSON files to import directory..."
-cp /opt/keycloak/KCSetup/*.json "$KEYCLOAK_IMPORT_DIR/"
+cp /opt/keycloak/realms/*.json "$KEYCLOAK_IMPORT_DIR/"
 
 # Start Keycloak with import-realm flag
 echo "Starting Keycloak with import-realm flag..."

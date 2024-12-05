@@ -2,6 +2,7 @@ import docker
 import json
 import subprocess
 import os
+import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List, Type
 
@@ -102,49 +103,36 @@ def analyze_logs(self,
             "error": str(e)
         }
     
+from docker.errors import NotFound, APIError
 
-def containerRunning(container_name):
+def container_running(container_name):
     """
-    Check if a Docker container is running using subprocess.
+    Check if a Docker container is running using the Docker Python SDK.
 
     :param container_name: Name of the Docker container
     :return: True if the container is running, otherwise False
     """
-    # Get the container status
-    result = subprocess.run(
-        ["docker", "inspect", "--format='{{.State.Status}}'", container_name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    
-    if result.returncode != 0:
-        if "No such object" in result.stderr:
-            print(f"Container {container_name} not found")
-            return False
-        else:
-            print(f"Error checking container status: {result.stderr}")
-            raise RuntimeError(result.stderr)
+    client = docker.from_env()
 
-    # Extract the status
-    status = result.stdout.strip().strip("'")
-    if status == "running":
-        print(f"Container {container_name} is already running")
-        return True
+    try:
+        # Get the container
+        container = client.containers.get(container_name)
+        # Check the container status
+        if container.status == "running":
+            print(f"Container {container_name} is already running")
+            return True
 
-    print(f"Container {container_name} is in status '{status}'. Removing...")
-    # Remove the container if it exists but is not running
-    remove_result = subprocess.run(
-        ["docker", "rm", container_name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if remove_result.returncode != 0:
-        print(f"Error removing container {container_name}: {remove_result.stderr}")
-        raise RuntimeError(remove_result.stderr)
+        print(f"Container {container_name} is in status '{container.status}'. Removing...")
+        # Remove the container if it exists but is not running
+        container.remove()
+        return False
 
-    return False
+    except NotFound:
+        print(f"Container {container_name} not found")
+        return False
+    except APIError as e:
+        print(f"Error checking container status: {e}")
+        raise RuntimeError(str(e))
 
 def create_network(networkName):
     """Create Docker network if not exists"""
@@ -158,5 +146,51 @@ def create_network(networkName):
         return
     
 
-def wait_for_db(db_url, db_user, max_attempts=30, delay=2):
-    os.system(f"./wait_for_db.sh {db_url} {db_user}")
+def ensure_network(network_name):
+    """Ensure the Docker network exists."""
+    try:
+        DOCKER_CLIENT.networks.get(network_name)
+        print(f"Network {network_name} already exists.")
+    except NotFound:
+        DOCKER_CLIENT.networks.create(network_name)
+        print(f"Network {network_name} created.")
+
+def run_container(config):
+    print(f'\033[4;32mAttempting to run container {config["name"]}\033[0m')
+    if container_running(config["name"]):
+        print(config["name"] + " already running")
+        return
+    try:
+        DOCKER_CLIENT.containers.run(**config)
+        print(f'{config["name"]} container started.')
+    except APIError as e:
+        print(f'Error starting {config["name"]} container: {e}')
+
+def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
+    print(f"Using db_url: {db_url}")
+    print(f"Waiting for the database to respond on {db_url}...")
+    host, port = db_url.split(":")
+
+    while True:
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--network",
+                    network,
+                    "postgres:15-alpine",
+                    "sh",
+                    "-c",
+                    f"pg_isready -h {host} -p {port} -U {db_user} >/dev/null 2>&1"
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            print(f"The database is accepting connections on {db_url}!")
+            break
+        except subprocess.CalledProcessError:
+            print(f"Still waiting for the database to accept connections on {db_url}...")
+            time.sleep(2)
