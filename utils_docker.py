@@ -8,6 +8,7 @@ from typing import Dict, Optional, Any, List, Type
 
 DOCKER_CLIENT = docker.from_env()
 
+
 def list_containers(show_all: bool = False) -> str:
     """List Docker containers."""
     try:
@@ -25,15 +26,16 @@ def list_containers(show_all: bool = False) -> str:
     except Exception as e:
         return f"Error listing containers: {str(e)}"
 
+
 def _extract_log_patterns(logs: str) -> Dict[str, Any]:
     """Analyze logs for common patterns and anomalies."""
-    lines = logs.split('\n')
+    lines = logs.split("\n")
     analysis = {
         "total_lines": len(lines),
-        "error_count": sum(1 for line in lines if 'error' in line.lower()),
-        "warning_count": sum(1 for line in lines if 'warn' in line.lower()),
+        "error_count": sum(1 for line in lines if "error" in line.lower()),
+        "warning_count": sum(1 for line in lines if "warn" in line.lower()),
         "patterns": {},
-        "timestamps": []
+        "timestamps": [],
     }
 
     # Extract timestamps if they exist
@@ -41,18 +43,21 @@ def _extract_log_patterns(logs: str) -> Dict[str, Any]:
         try:
             if line and len(line) > 20:
                 timestamp_str = line[:23]
-                timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+                timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f")
                 analysis["timestamps"].append(timestamp)
         except (ValueError, IndexError):
             continue
 
     return analysis
 
-def analyze_logs(self,
-                    container_name: str,
-                    time_range_minutes: Optional[int] = 60,
-                    filters: Optional[Dict[str, str]] = None,
-                    max_lines: Optional[int] = 1000) -> Dict[str, Any]:
+
+def analyze_logs(
+    self,
+    container_name: str,
+    time_range_minutes: Optional[int] = 60,
+    filters: Optional[Dict[str, str]] = None,
+    max_lines: Optional[int] = 1000,
+) -> Dict[str, Any]:
     """Analyze logs from a specific container with pattern detection."""
     try:
         container = DOCKER_CLIENT.containers.get(container_name)
@@ -60,19 +65,16 @@ def analyze_logs(self,
         # Get logs with timestamp
         since = datetime.utcnow() - timedelta(minutes=time_range_minutes)
         logs = container.logs(
-            since=since,
-            until=datetime.utcnow(),
-            timestamps=True,
-            tail=max_lines
-        ).decode('utf-8')
+            since=since, until=datetime.utcnow(), timestamps=True, tail=max_lines
+        ).decode("utf-8")
 
         # Apply filters if specified
         if filters:
             filtered_logs = []
-            for line in logs.split('\n'):
+            for line in logs.split("\n"):
                 if all(value.lower() in line.lower() for value in filters.values()):
                     filtered_logs.append(line)
-            logs = '\n'.join(filtered_logs)
+            logs = "\n".join(filtered_logs)
 
         # Analyze logs
         analysis = self._extract_log_patterns(logs)
@@ -83,56 +85,23 @@ def analyze_logs(self,
             "id": container_info["Id"][:12],
             "name": container_info["Name"],
             "state": container_info["State"]["Status"],
-            "created": container_info["Created"]
+            "created": container_info["Created"],
         }
 
         return {
             "success": True,
             "analysis": analysis,
-            "raw_logs": logs if len(logs) < 1000 else f"{logs[:1000]}... (truncated)"
+            "raw_logs": logs if len(logs) < 1000 else f"{logs[:1000]}... (truncated)",
         }
 
     except docker.errors.NotFound:
-        return {
-            "success": False,
-            "error": f"Container {container_name} not found"
-        }
+        return {"success": False, "error": f"Container {container_name} not found"}
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-    
+        return {"success": False, "error": str(e)}
+
+
 from docker.errors import NotFound, APIError
 
-def container_running(container_name):
-    """
-    Check if a Docker container is running using the Docker Python SDK.
-
-    :param container_name: Name of the Docker container
-    :return: True if the container is running, otherwise False
-    """
-    client = docker.from_env()
-
-    try:
-        # Get the container
-        container = client.containers.get(container_name)
-        # Check the container status
-        if container.status == "running":
-            print(f"Container {container_name} is already running")
-            return True
-
-        print(f"Container {container_name} is in status '{container.status}'. Removing...")
-        # Remove the container if it exists but is not running
-        container.remove()
-        return False
-
-    except NotFound:
-        print(f"Container {container_name} not found")
-        return False
-    except APIError as e:
-        print(f"Error checking container status: {e}")
-        raise RuntimeError(str(e))
 
 def create_network(networkName):
     """Create Docker network if not exists"""
@@ -144,7 +113,7 @@ def create_network(networkName):
         DOCKER_CLIENT.networks.create(networkName)
         print(f"Created Network {networkName}")
         return
-    
+
 
 def ensure_network(network_name):
     """Ensure the Docker network exists."""
@@ -155,16 +124,66 @@ def ensure_network(network_name):
         DOCKER_CLIENT.networks.create(network_name)
         print(f"Network {network_name} created.")
 
-def run_container(config):
-    print(f'\033[4;32mAttempting to run container {config["name"]}\033[0m')
-    if container_running(config["name"]):
-        print(config["name"] + " already running")
-        return
+
+def debug_container(config):
+    print(f'\033[4;32mDebugging container {config["name"]}\033[0m')
+    container_name = config["name"]
+
+    # Get the container if it exists
     try:
-        DOCKER_CLIENT.containers.run(**config)
-        print(f'{config["name"]} container started.')
-    except APIError as e:
-        print(f'Error starting {config["name"]} container: {e}')
+        container = DOCKER_CLIENT.containers.get(container_name)
+        print(f"Container {container_name} is in status '{container.status}'")
+
+        if container.status == "running":
+            print(f"Container {container_name} is already running")
+            return True
+
+        if container.status == "restarting":
+            print("Container restarting (bad)")
+            print("Stopping container")
+            container.stop()
+
+        # Remove the container if it exists but is not running
+        print("Removing container")
+        container.remove()
+    except Exception as e:
+        print(f"Container {container_name} not found or already removed: {e}")
+
+    # Modify the configuration to use auto-remove and run in the foreground
+    # config["auto_remove"] = True  # Enables --rm equivalent
+    config["restart_policy"] = None  # Ensure no restart policy is set
+    config["detach"] = True  # Run the container in daemon mode to get container object
+    config["tty"] = True  # Allocate a pseudo-TTY for interactive logs
+
+    # Now run it
+    print("Starting container with debug configuration...")
+    DOCKER_CLIENT.containers.run(**config)
+
+
+def run_container(config):
+    print(f'\033[4;32mRunning container {config["name"]}\033[0m')
+    container_name = config["name"]
+    # Get the container
+    try:
+        container = DOCKER_CLIENT.containers.get(container_name)
+        # Check the container status
+        print(f"Container {container_name} is in status '{container.status}'")
+        if container.status == "running":
+            print(f"Container {container_name} is already running")
+            return True
+        if container.status == "restarting":
+            print("Stopping container")
+            container.stop()
+
+        print("Removing")
+        container.remove()
+        print("Running container!")
+    except:
+        print(f"No container is running with name {container_name}")
+    # Now run it
+    print(f"Starting {container_name}")
+    DOCKER_CLIENT.containers.run(**config)
+
 
 def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
     print(f"Using db_url: {db_url}")
@@ -183,14 +202,41 @@ def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
                     "postgres:15-alpine",
                     "sh",
                     "-c",
-                    f"pg_isready -h {host} -p {port} -U {db_user} >/dev/null 2>&1"
+                    f"pg_isready -h {host} -p {port} -U {db_user} >/dev/null 2>&1",
                 ],
                 check=True,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
             )
             print(f"The database is accepting connections on {db_url}!")
             break
         except subprocess.CalledProcessError:
-            print(f"Still waiting for the database to accept connections on {db_url}...")
+            print(
+                f"Still waiting for the database to accept connections on {db_url}..."
+            )
             time.sleep(2)
+
+
+def wait_for_url(url, network):
+    # Create and start the container
+    run_container(
+        dict(
+            image="curlimages/curl:latest",  # Use the curl-specific image
+            name="url_test",
+            network=network,
+            environment={"TEST_URL": url},
+            command=[
+                "sh",
+                "-c",
+                """
+            while ! curl $TEST_URL; do
+                echo 'Waiting for Keycloak at' $TEST_URL
+                sleep 2
+            done
+            echo 'Keycloak is up!'
+            """,
+            ],
+            detach=False,
+            remove=True,  # Automatically clean up the container after it stops
+        )
+    )

@@ -12,10 +12,12 @@ def substitutions(currdir, env):
             with open(currdir, 'r') as f:
                 templateText = f.read()
             for k, v in vars(env).items():
-                templateText = templateText.replace(k, str(v))
+                templateText = templateText.replace("$"+k, str(v))
+            with open(currdir.replace(".template",""), 'w+') as f:
+                f.write(templateText)
 
 def initializeFiles():
     if not os.path.isfile("env.py"):
-        shutil.copy("env.py.example", "env.py")
+        shutil.copy("env.example.py", "env.py")
         print("env.py file did not exist and has been created. Please edit it to update the necessary values, then re-run this script.")
         sys.exit(1)

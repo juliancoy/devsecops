@@ -1,10 +1,10 @@
 import os
 import shutil
 import sys
-import util 
+import util
 import time
 import os
-import sys 
+import sys
 import utils_docker
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -14,6 +14,7 @@ util.initializeFiles()
 
 print("Reading env.py")
 import env
+
 print("Applying env var substitutions in hard-coded .template files")
 util.substitutions(here, env)
 
@@ -22,11 +23,18 @@ config = vars(env)
 # make sure the network is up
 utils_docker.ensure_network(env.BRAND_NAME)
 
-# start up keycloak
+# --- KEYCLOAK ---
 utils_docker.run_container(env.keycloakdb)
 utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="keycloakdb:5432")
+# create the keys if they dont exist
+if not os.path.isdir("keycloak/keys"):
+    os.system("cd keycloak && ./init-temp-keys.sh")
+    os.system("cd keycloak/keys && chmod 666 *")
 utils_docker.run_container(env.keycloak)
 
+
+# --- OPENTDF ---
 utils_docker.run_container(env.opentdfdb)
 utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="opentdfdb:5432")
+utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_CHECK_ADDR, network=env.BRAND_NAME)
 utils_docker.run_container(env.opentdf)

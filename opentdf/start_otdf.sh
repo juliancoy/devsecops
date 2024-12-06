@@ -46,4 +46,5 @@ docker run -d \
   --health-retries=5 \
   julianfl0w/opentdf:1.0 \
   start
+  
 
