@@ -19,6 +19,7 @@ def substitutions(currdir, env):
 def initializeFiles():
     # Check if we are in a GitHub Actions environment
     in_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
+    print(in_github_actions)
     
     if not os.path.isfile("env.py"):
         shutil.copy("env.example.py", "env.py")

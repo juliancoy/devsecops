@@ -18,3 +18,5 @@ jobs:
 
       - name: Run start.sh
         run: ./start.sh
+        env:
+            IN_GITHUB_ACTIONS: true
