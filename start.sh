@@ -1,4 +1,4 @@
-apt update
-apt install python3 
-apt install python3-docker
+sudo apt update
+sudo apt install -y python3 
+sudo apt install -y python3-docker
 python3 run.py
