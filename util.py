@@ -17,7 +17,15 @@ def substitutions(currdir, env):
                 f.write(templateText)
 
 def initializeFiles():
+    # Check if we are in a GitHub Actions environment
+    in_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
+    
     if not os.path.isfile("env.py"):
         shutil.copy("env.example.py", "env.py")
         print("env.py file did not exist and has been created. Please edit it to update the necessary values, then re-run this script.")
-        sys.exit(1)
+        
+        # Exit only if not in GitHub Actions
+        if not in_github_actions:
+            sys.exit(1)
+        else:
+            print("Running in GitHub Actions, continuing without exiting.")
