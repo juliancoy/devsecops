@@ -32,6 +32,12 @@ if not os.path.isdir("keycloak/keys"):
     os.system("cd keycloak/keys && chmod 666 *")
 utils_docker.run_container(env.keycloak)
 
+# --- NGINX ---
+if env.IS_EC2:
+    utils_docker.generateProdKeys(outdir = env.nginx_dir, website=env.USER_WEBSITE)
+else:
+    utils_docker.generateDevKeys(outdir = env.nginx_dir)
+utils_docker.run_container(env.nginx)
 
 # --- OPENTDF ---
 utils_docker.run_container(env.opentdfdb)

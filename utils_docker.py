@@ -139,7 +139,6 @@ def debug_container(config):
             return True
 
         if container.status == "restarting":
-            print("Container restarting (bad)")
             print("Stopping container")
             container.stop()
 
@@ -147,13 +146,14 @@ def debug_container(config):
         print("Removing container")
         container.remove()
     except Exception as e:
-        print(f"Container {container_name} not found or already removed: {e}")
+        print(f"Container {container_name} not found or already removed")
 
     # Modify the configuration to use auto-remove and run in the foreground
     # config["auto_remove"] = True  # Enables --rm equivalent
     config["restart_policy"] = None  # Ensure no restart policy is set
-    config["detach"] = True  # Run the container in daemon mode to get container object
+    config["detach"] = False  # Run the container in daemon mode to get container object
     config["tty"] = True  # Allocate a pseudo-TTY for interactive logs
+    config["remove"] = False   # equivalent to --rm
 
     # Now run it
     print("Starting container with debug configuration...")
@@ -239,4 +239,94 @@ def wait_for_url(url, network):
             detach=False,
             remove=True,  # Automatically clean up the container after it stops
         )
+    )
+    
+def generateDevKeys(outdir):
+    print("Generating Development Keys with SAN for localhost and nginx")
+
+    openssl_config = (
+        "[req]\n"
+        "default_bits = 2048\n"
+        "prompt = no\n"
+        "default_md = sha256\n"
+        "distinguished_name = dn\n"
+        "req_extensions = req_ext\n"
+        "\n"
+        "[dn]\n"
+        "CN = nginx\n"
+        "\n"
+        "[req_ext]\n"
+        "subjectAltName = @alt_names\n"
+        "\n"
+        "[alt_names]\n"
+        "DNS.1 = nginx\n"
+        "DNS.2 = localhost\n"
+        "IP.1 = 127.0.0.1\n"
+    )
+    
+    command = (
+        "sh -c \""
+        # Install OpenSSL
+        "apk add --no-cache openssl && "
+        # Create certs directory
+        "mkdir -p /certs && "
+        # Write OpenSSL config to a temporary file
+        "echo '" + openssl_config.replace("'", "'\\''") + "' > /tmp/openssl.cnf && "
+        # Create CA key
+        "openssl genrsa -out /certs/ca.key 2048 && "
+        # Create CA certificate (self-signed)
+        "openssl req -x509 -new -nodes -key /certs/ca.key -sha256 -days 3650 "
+        "-subj '/C=US/ST=CA/L=Local/O=MyOrg/CN=MyCA' -out /certs/ca.crt && "
+        # Create server key
+        "openssl genrsa -out /certs/privkey.pem 2048 && "
+        # Create CSR for server certificate using the SAN config
+        "openssl req -new -key /certs/privkey.pem -config /tmp/openssl.cnf -out /tmp/server.csr && "
+        # Sign the server CSR with the CA key and certificate
+        "openssl x509 -req -in /tmp/server.csr -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial "
+        "-days 365 -sha256 -extfile /tmp/openssl.cnf -extensions req_ext -out /certs/server.crt && "
+        # Combine server cert and CA cert into a full chain
+        "cat /certs/server.crt /certs/ca.crt > /certs/fullchain.pem && "
+        # Set permissions
+        "chmod 644 /certs/privkey.pem /certs/server.crt /certs/fullchain.pem /certs/ca.crt\""
+    )
+
+    # Run the container to generate the certificate
+    try:
+        DOCKER_CLIENT.containers.run(
+            image='alpine:latest',
+            name='cert_gen',
+            command=command,
+            volumes={
+                outdir: {
+                    'bind': '/certs',
+                    'mode': 'rw'
+                }
+            },
+            remove=True,
+            tty=True
+        )
+        print("Certificates generated successfully and stored in:", outdir)
+    except Exception as e:
+        print(f"Error generating certificates: {e}")
+
+
+def generateProdKeys(outdir, website):
+    DOCKER_CLIENT.containers.run(
+        image='certbot/certbot',
+        command=[
+            'certonly',
+            '--manual',
+            '--preferred-challenges', 'dns',
+            '-d', f"{website}",
+            '-d', f"*.{website}"
+        ],
+        volumes={
+            outdir: {
+                'bind': '/etc/letsencrypt',
+                'mode': 'rw'
+            }
+        },
+        remove=True,
+        tty=True,
+        stdin_open=True
     )
