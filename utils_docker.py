@@ -5,6 +5,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List, Type
+here = os.path.abspath(os.path.dirname(__file__))
 
 DOCKER_CLIENT = docker.from_env()
 
@@ -263,13 +264,12 @@ def generateDevKeys(outdir):
         "DNS.2 = localhost\n"
         "IP.1 = 127.0.0.1\n"
     )
-    
+
     command = (
         "sh -c \""
+        "ls /certs && "
         # Install OpenSSL
         "apk add --no-cache openssl && "
-        # Create certs directory
-        "mkdir -p /certs && "
         # Write OpenSSL config to a temporary file
         "echo '" + openssl_config.replace("'", "'\\''") + "' > /tmp/openssl.cnf && "
         # Create CA key
@@ -287,7 +287,10 @@ def generateDevKeys(outdir):
         # Combine server cert and CA cert into a full chain
         "cat /certs/server.crt /certs/ca.crt > /certs/fullchain.pem && "
         # Set permissions
-        "chmod 644 /certs/privkey.pem /certs/server.crt /certs/fullchain.pem /certs/ca.crt\""
+        "chmod 644 /certs/privkey.pem /certs/server.crt /certs/fullchain.pem /certs/ca.crt && "
+        # Combine it with the standard trust store
+        "cat /certs/ca-certificates.crt /certs/ca.crt /keycloak/keys/keycloak-ca.pem /certs/server.crt > /certs/all-ca-certificates.crt\""
+
     )
 
     # Run the container to generate the certificate
@@ -298,11 +301,15 @@ def generateDevKeys(outdir):
             command=command,
             volumes={
                 outdir: {
-                    'bind': '/certs',
+                    'bind': '/certs/',
+                    'mode': 'rw'
+                },
+                os.path.join(here, "keycloak"): {
+                    'bind': '/keycloak/',
                     'mode': 'rw'
                 }
             },
-            remove=True,
+            remove=False,
             tty=True
         )
         print("Certificates generated successfully and stored in:", outdir)
@@ -326,7 +333,10 @@ def generateProdKeys(outdir, website):
                 'mode': 'rw'
             }
         },
-        remove=True,
+        remove=False,
         tty=True,
         stdin_open=True
     )
+
+if __name__ == "__main__":
+    generateDevKeys(os.path.join(here, "nginx"))

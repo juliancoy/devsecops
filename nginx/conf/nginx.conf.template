@@ -19,7 +19,7 @@ http {
 
         # Main application
         location / {
-            set $frontend_upstream "frontend_codecollective-www";
+            set $frontend_upstream "webapp";
             proxy_pass http://$frontend_upstream:5173;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -70,25 +70,25 @@ http {
             proxy_send_timeout 60s;
         }
 
-        # Keycloak HTTPS proxy
         location /keycloak/ {
-            # Set a variable for the upstream Keycloak host
             set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
 
-            # Remove /keycloak prefix before passing to the upstream
-            rewrite ^/keycloak(/.*)?$ $1 break;
-            
-            # Pass to Keycloak over HTTPS (adjust port as necessary)
-            proxy_pass https://$NGINX_KEYCLOAK_UPSTREAM:8443;
+            # Proxy to Keycloak
+            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;
 
-            # Set headers
+            # Add headers
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
 
-            # Handle SSL specifics
+            # Handle upstream redirects to enforce /keycloak/ prefix
+            proxy_redirect http://keycloak:8888/ /keycloak/;
+            proxy_redirect http://keycloak:8888/auth/ /keycloak/auth/;
+
+            # SSL Handling
             proxy_ssl_server_name on;
-            proxy_ssl_verify off;  # Disable verification for now; replace with proper CA trust in production
+            proxy_ssl_verify off;  # Replace with proper CA trust in production
 
             # Retry logic and timeouts
             proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
@@ -96,5 +96,7 @@ http {
             proxy_read_timeout 60s;
             proxy_send_timeout 60s;
         }
+
+
     }
 }

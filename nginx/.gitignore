@@ -1,4 +1,4 @@
 ca.*
 *.pem
-*.crt
 config.ini
+server.crt

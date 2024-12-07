@@ -78,7 +78,7 @@
     }, {
       "id" : "e6c0782d-71ce-4af4-a1ce-44f0cdd1be46",
       "name" : "user",
-      "description" : "Default role for new users of Arkavo, including the ability to view all users",
+      "description" : "Default role for new users of $BRAND_NAME, including the ability to view all users",
       "composite" : false,
       "clientRole" : false,
       "containerId" : "c294e310-4d46-48ce-9059-2fd0ae926a01",
@@ -316,7 +316,6 @@
         "attributes" : { }
       } ],
       "security-admin-console" : [ ],
-      "localhost-arkavo-web" : [ ],
       "account-console" : [ ],
       "broker" : [ {
         "id" : "e6b95053-edc4-400a-8442-fd915502f41b",
@@ -337,7 +336,6 @@
         "attributes" : { }
       } ],
       "tdf-authorization-svc" : [ ],
-      "arkavo-admin" : [ ],
       "admin-cli" : [ ],
       "opentdf" : [ ],
       "account" : [ {
@@ -414,8 +412,7 @@
         "clientRole" : true,
         "containerId" : "6c7eae20-cd4f-410d-bf9d-b27ba3726947",
         "attributes" : { }
-      } ],
-      "arkavo" : [ ]
+      } ]
     }
   },
   "groups" : [ {
@@ -585,62 +582,8 @@
     "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "email" ],
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
-    "id" : "bb4c1665-0489-4388-a141-2609c6846cce",
-    "clientId" : "arkavo",
-    "name" : "arkavo",
-    "description" : "",
-    "rootUrl" : "https://arkavo.org",
-    "adminUrl" : "https://arkavo.org",
-    "baseUrl" : "https://arkavo.org",
-    "surrogateAuthRequired" : false,
-    "enabled" : true,
-    "alwaysDisplayInConsole" : false,
-    "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "https://arkavo.org:3001/*", "https://arkavo.ai:3001/*", "https://arkavo.org/*", "https://arkavo.ai/*", "https://blog.arkavo.org/*", "https://localhost:3001/*" ],
-    "webOrigins" : [ "https://arkavo.ai:3001", "https://arkavo.org", "https://localhost:3001", "https://blog.arkavo.org/", "https://arkavo.org:3001", "https://arkavo.ai" ],
-    "notBefore" : 0,
-    "bearerOnly" : false,
-    "consentRequired" : false,
-    "standardFlowEnabled" : true,
-    "implicitFlowEnabled" : false,
-    "directAccessGrantsEnabled" : true,
-    "serviceAccountsEnabled" : false,
-    "publicClient" : true,
-    "frontchannelLogout" : true,
-    "protocol" : "openid-connect",
-    "attributes" : {
-      "oidc.ciba.grant.enabled" : "false",
-      "backchannel.logout.session.required" : "true",
-      "post.logout.redirect.uris" : "https://arkavo.ai/*##https://localhost:3001/*##https://arkavo.ai:3001/*##https://arkavo.org:3001/*##https://arkavo.org/*##https://blog.arkavo.org/*",
-      "oauth2.device.authorization.grant.enabled" : "false",
-      "display.on.consent.screen" : "false",
-      "backchannel.logout.revoke.offline.tokens" : "false"
-    },
-    "authenticationFlowBindingOverrides" : { },
-    "fullScopeAllowed" : true,
-    "nodeReRegistrationTimeout" : -1,
-    "protocolMappers" : [ {
-      "id" : "1ae21341-450d-47d9-8041-a29b37efee3f",
-      "name" : "picture",
-      "protocol" : "openid-connect",
-      "protocolMapper" : "oidc-usermodel-attribute-mapper",
-      "consentRequired" : false,
-      "config" : {
-        "introspection.token.claim" : "true",
-        "userinfo.token.claim" : "true",
-        "user.attribute" : "picture",
-        "id.token.claim" : "true",
-        "lightweight.claim" : "false",
-        "access.token.claim" : "true",
-        "claim.name" : "picture",
-        "jsonType.label" : "String"
-      }
-    } ],
-    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "email" ],
-    "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
-  }, {
     "id" : "088dcdc6-04d4-4627-8543-07f591f58fd8",
-    "clientId" : "arkavo-admin",
+    "clientId" : "$BRAND_NAME-admin",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
@@ -739,17 +682,17 @@
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "5f16ad72-acc3-4421-9976-c3a7c5e8a5e6",
-    "clientId" : "localhost-arkavo-web",
+    "clientId" : "$BRAND_NAME",
     "name" : "",
     "description" : "",
-    "rootUrl" : "http://localhost:5173/",
-    "adminUrl" : "http://localhost:5173/",
-    "baseUrl" : "http://localhost:5173/",
+    "rootUrl" : "$PROTOCOL_USER_WEBSITE",
+    "adminUrl" : "$PROTOCOL_USER_WEBSITE",
+    "baseUrl" : "$PROTOCOL_USER_WEBSITE",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "http://localhost:5173/*" ],
+    "redirectUris" : [ "$PROTOCOL_USER_WEBSITE/*" ],
     "webOrigins" : [ "+" ],
     "notBefore" : 0,
     "bearerOnly" : false,
@@ -765,7 +708,7 @@
       "oidc.ciba.grant.enabled" : "false",
       "client.secret.creation.time" : "1732645086",
       "backchannel.logout.session.required" : "true",
-      "post.logout.redirect.uris" : "http://localhost:5173/*",
+      "post.logout.redirect.uris" : "$PROTOCOL_USER_WEBSITE/*",
       "oauth2.device.authorization.grant.enabled" : "false",
       "display.on.consent.screen" : "false",
       "backchannel.logout.revoke.offline.tokens" : "false"

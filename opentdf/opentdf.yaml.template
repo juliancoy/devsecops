@@ -14,7 +14,7 @@ services:
     eccertid: e1
     rsacertid: r1
   entityresolution:
-    url: $KEYCLOAK_AUTH_URL
+    url: $KEYCLOAK_INTERNAL_AUTH_URL
     clientid: 'tdf-entity-resolution'
     clientsecret: 'secret'
     realm: 'opentdf'
@@ -34,7 +34,7 @@ server:
     enforceDPoP: false
     public_client_id: 'opentdf-public'
     audience: admin
-    issuer: $KEYCLOAK_AUTH_URL/realms/opentdf
+    issuer: $KEYCLOAK_INTERNAL_AUTH_URL/realms/opentdf
     policy:
       ## Default policy for all requests
       default: #"role:standard"

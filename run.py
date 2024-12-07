@@ -23,6 +23,10 @@ config = vars(env)
 # make sure the network is up
 utils_docker.ensure_network(env.BRAND_NAME)
 
+# --- WEB APP ---
+# theoretically has no dependencies
+utils_docker.run_container(env.webapp)
+
 # --- KEYCLOAK ---
 utils_docker.run_container(env.keycloakdb)
 utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="keycloakdb:5432")
@@ -33,10 +37,11 @@ if not os.path.isdir("keycloak/keys"):
 utils_docker.run_container(env.keycloak)
 
 # --- NGINX ---
-if env.IS_EC2:
-    utils_docker.generateProdKeys(outdir = env.nginx_dir, website=env.USER_WEBSITE)
-else:
-    utils_docker.generateDevKeys(outdir = env.nginx_dir)
+if not os.path.isfile("nginx/ca.crt"):
+    if env.IS_EC2:
+        utils_docker.generateProdKeys(outdir = env.nginx_dir, website=env.USER_WEBSITE)
+    else:
+        utils_docker.generateDevKeys(outdir = env.nginx_dir)
 utils_docker.run_container(env.nginx)
 
 # --- OPENTDF ---
