@@ -15,6 +15,23 @@ Components of this repo include
 ## System Diagram
 ![Architecture](./diagrams/architecture.png)
 
+# System Diagram - Mermaid
+```mermaid
+graph LR
+    %% Define components
+    Keycloak["Keycloak+DB"]
+    OpenTDF["OpenTDF+DB"]
+    OrgBackend["Org-Backend"]
+    ReactFrontend["React-Frontend"]
+
+    %% Connections with labels
+    OpenTDF -->|Authenticates with| Keycloak
+    OrgBackend -->|Authenticates with| Keycloak
+    ReactFrontend -->|Authenticates with| Keycloak
+    ReactFrontend -->|Interacts with| OpenTDF
+    ReactFrontend -->|Interacts with| OrgBackend
+```
+
 ## AICouncil
 Tools are included to enforce OWASP best practices, run continuous AI-driven penetration testing, and provide implementation feedback on request. An AI Council engages in consistant dialogue about the "main" and "dev" branch and may make pull requests according to _Robert's Rules of Order_ following _in vivo_ testing. 
 
