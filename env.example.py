@@ -48,6 +48,7 @@ if IS_EC2:
     pass
 else:
     KEYCLOAK_BASE_URL = "localhost/keycloak"
+    OPENTDF_BASE_URL = "localhost/opentdf"
     VITE_PUBLIC_URL = "localhost"
 
 # Git Branch Port Config
@@ -56,9 +57,9 @@ else:
 # Keycloak Config
 KEYCLOAK_REALM = "opentdf"
 KEYCLOAK_PROTOCOL = "https"
-KEYCLOAK_PORT = "8888" # if applicable
-KEYCLOAK_INTERNAL_CHECK_ADDR = "http://keycloak:8888"
-KEYCLOAK_INTERNAL_AUTH_URL = "https://keycloak:8443/keycloak/auth"
+KEYCLOAK_PORT = "" # if applicable
+KEYCLOAK_INTERNAL_CHECK_ADDR = f"https://{KEYCLOAK_BASE_URL}"
+KEYCLOAK_INTERNAL_AUTH_URL = f"https://{KEYCLOAK_BASE_URL}/auth"
 KEYCLOAK_HOST = KEYCLOAK_PROTOCOL + "://" + KEYCLOAK_BASE_URL
 KEYCLOAK_AUTH_URL = KEYCLOAK_HOST + "/auth"
 VITE_KEYCLOAK_AUTH_ENDPOINT = (
@@ -73,7 +74,7 @@ VITE_KEYCLOAK_USERINFO_ENDPOINT = (
 VITE_KEYCLOAK_SERVER_URL = KEYCLOAK_HOST + "/auth"
 VITE_KEYCLOAK_CLIENT_ID = BRAND_NAME
 VITE_KEYCLOAK_REALM = KEYCLOAK_REALM
-VITE_KAS_ENDPOINT = "https://localhost/opentdf/kas"
+VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
 KEYCLOAK_ADMIN_PASSWORD = "changeme" # Secrets
 
 # Other ish
@@ -86,10 +87,10 @@ VITE_GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
 
 # GitHub OAuth Config
 GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
-VITE_GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
-VITE_GITHUB_SCOPES = "openid profile email"
-VITE_GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
-VITE_GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
+GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
+GITHUB_SCOPES = "openid profile email"
+GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
 
 PEM_FILE = "<YOUR SECRET HERE>"
 SERVER_USER = "<YOUR SECRET HERE>"
@@ -284,7 +285,31 @@ webapp = dict(
     },
     working_dir="/usr/src/app",
     ports={
-        "3001": "5173"
+        "5173": "3001"
+    },
+    environment={
+        "NODE_ENV": "development",
+        "VITE_KEYCLOAK_SERVER_URL": VITE_KEYCLOAK_SERVER_URL,
+        "VITE_KEYCLOAK_REALM": VITE_KEYCLOAK_REALM,
+        "VITE_KEYCLOAK_CLIENT_ID": VITE_KEYCLOAK_CLIENT_ID,
+        "VITE_ORG_BACKEND_URL": VITE_ORG_BACKEND_URL,
+        "VITE_KAS_ENDPOINT": VITE_KAS_ENDPOINT,
+    },
+    command="sh -c 'npm install && npm run dev'",
+)
+
+orgbackend = dict(
+    image="node:22",
+    detach=True,  # Runs the container in detached mode
+    name=f"webapp",
+    network=BRAND_NAME,
+    remove=True,  # Automatically removes the container when stopped
+    volumes={
+        webapp_dir: {"bind": "/usr/src/app", "mode": "rw"}
+    },
+    working_dir="/usr/src/app",
+    ports={
+        "5173": "3001"
     },
     environment={
         "NODE_ENV": "development",

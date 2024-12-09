@@ -3,4 +3,8 @@ ca.*
 config.ini
 server.crt
 accounts
-certbot-config
+certbot*
+ssl
+renewal*
+html
+*.crt

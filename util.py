@@ -3,6 +3,17 @@ import sys
 import shutil
 import docker
 
+def writeViteEnv(env, output_file="webapp/.env"):
+    print("Writing environment file for web app")
+    # Open the file for writing
+    with open(output_file, "w") as f:
+        for key, value in env.items():
+            if not key.startswith("__") and isinstance(value, (str, int, float)):
+                f.write(f"{key}={value}\n")
+
+    print(f"Environment variables have been written to {output_file}")
+
+
 def substitutions(currdir, env): 
     if os.path.isdir(currdir):
         try:

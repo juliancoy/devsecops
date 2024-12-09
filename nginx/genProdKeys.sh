@@ -7,5 +7,5 @@ certbot certonly \
   --config-dir "$(pwd)/certbot-config" \
   --work-dir "$(pwd)/certbot-work" \
   --logs-dir "$(pwd)/certbot-logs" \
-  -d "codecollective.us" \
-  -d "*.codecollective.us"
+  -d "localhost" \
+  -d "*.localhost"

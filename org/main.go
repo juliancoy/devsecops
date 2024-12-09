@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/Nerzal/gocloak/v12"
 	"github.com/gin-contrib/cors"
@@ -19,7 +20,7 @@ type Config struct {
 }
 
 var config = Config{
-	KeycloakURL: "https://keycloak.juliancoy.us/auth", // Keycloak server URL
+	KeycloakURL: os.Getenv("KEYCLOAK_SERVER_URL"),     // Keycloak server URL
 	AdminUser:   os.Getenv("KEYCLOAK_ADMIN"),          // Admin username
 	AdminPass:   os.Getenv("KEYCLOAK_ADMIN_PASSWORD"), // Admin password
 	Realm:       "opentdf",                            // Keycloak realm
@@ -27,6 +28,14 @@ var config = Config{
 
 // Global GoCloak instance (pointer)
 var orgBackendClient *gocloak.GoCloak
+
+func getAllowedOrigins() []string {
+	origins := os.Getenv("ALLOWED_ORIGINS")
+	if origins == "" {
+		return []string{"https://localhost"} // Default origin
+	}
+	return strings.Split(origins, ",")
+}
 
 func main() {
 	// Initialize the GoCloak client
@@ -36,10 +45,7 @@ func main() {
 
 	// Enable CORS with default settings
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"https://localhost:5173",
-			"https://arkavo.ai",
-		},
+		AllowOrigins:     getAllowedOrigins(),
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -47,6 +53,7 @@ func main() {
 	}))
 
 	// Define routes
+	router.GET("/", rootHandler)          // Service status endpoint
 	router.GET("/users", getUsersHandler) // Get all users endpoint
 
 	port := os.Getenv("PORT")
@@ -55,7 +62,7 @@ func main() {
 	}
 
 	// Use HTTP and bind to localhost
-	router.Run("127.0.0.1:" + port)
+	router.Run(":" + port)
 }
 
 // initializeClient sets up the GoCloak client
@@ -75,6 +82,14 @@ func authenticateAdmin(ctx context.Context) (*gocloak.JWT, error) {
 
 	fmt.Println("Admin authentication successful")
 	return token, nil
+}
+
+// rootHandler serves a simple page indicating the service is up
+func rootHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Service is up and running!",
+		"status":  "OK",
+	})
 }
 
 // getUsersHandler fetches a list of all users from Keycloak

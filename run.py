@@ -17,6 +17,7 @@ import env
 
 print("Applying env var substitutions in hard-coded .template files")
 util.substitutions(here, env)
+util.writeViteEnv(vars(env))
 
 # Convert env.py to a dictionary
 config = vars(env)
@@ -49,3 +50,6 @@ utils_docker.run_container(env.opentdfdb)
 utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="opentdfdb:5432")
 utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_CHECK_ADDR, network=env.BRAND_NAME)
 utils_docker.run_container(env.opentdf)
+
+# --- ORG --- 
+utils_docker.run_container(env.org)
