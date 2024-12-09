@@ -1,11 +1,11 @@
 certbot certonly \
   --manual \
   --preferred-challenges dns \
-  --email "julian@codecollective.us" \
+  --email "$USER_EMAIL" \
   --agree-tos \
   --no-eff-email \
   --config-dir "$(pwd)/certbot-config" \
   --work-dir "$(pwd)/certbot-work" \
   --logs-dir "$(pwd)/certbot-logs" \
-  -d "codecollective.us" \
-  -d "*.codecollective.us"
+  -d "$USER_WEBSITE" \
+  -d "*.$USER_WEBSITE"

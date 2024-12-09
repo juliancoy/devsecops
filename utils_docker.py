@@ -304,15 +304,15 @@ def generateProdKeys():
                 "--preferred-challenges",
                 "dns",
                 "--email",
-                env["USER_EMAIL"],  # Add email for registration
+                env.USER_EMAIL,  # Add email for registration
                 "--agree-tos",  # Automatically agree to terms of service
                 "--no-eff-email",  # Automatically say no to EFF email sharing
                 "-d",
-                env["USER_WEBSITE"],
+                env.USER_WEBSITE,
                 "-d",
-                f"*.{env['USER_WEBSITE']}",
+                f"*.{env.USER_WEBSITE}",
             ],
-            volumes={env["nginx_dir"]: {"bind": "/etc/letsencrypt", "mode": "rw"}},
+            volumes={env.nginx_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
             detach=False,  # Attach the process to the terminal
             remove=True,  # Automatically remove the container after it exits
             tty=True,  # Allocate a pseudo-TTY
