@@ -3,3 +3,4 @@ ca.*
 config.ini
 server.crt
 accounts
+certbot-config

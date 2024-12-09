@@ -1991,12 +1991,12 @@
     "linkOnly" : false,
     "config" : {
       "hideOnLoginPage" : "false",
-      "clientId" : "GOOGLE_CLIENT_ID",
+      "clientId" : "$GOOGLE_CLIENT_ID",
       "acceptsPromptNoneForwardFromClient" : "false",
       "disableUserInfo" : "false",
       "filteredByClaim" : "false",
       "syncMode" : "IMPORT",
-      "clientSecret" : "GOOGLE_CLIENT_SECRET",
+      "clientSecret" : "$GOOGLE_CLIENT_SECRET",
       "defaultScope" : "openid profile email"
     }
   }, {
