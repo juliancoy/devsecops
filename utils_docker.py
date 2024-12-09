@@ -1,7 +1,6 @@
 import docker
 import json
 import subprocess
-import env
 import os
 import time
 from datetime import datetime, timedelta
@@ -226,13 +225,13 @@ def wait_for_url(url, network):
         dict(
             image="curlimages/curl:latest",  # Use the curl-specific image
             name="url_test",
-            network=network,
+            network_mode="host",  # Set the network mode to host
             environment={"TEST_URL": url},
             command=[
                 "sh",
                 "-c",
                 """
-            while ! curl $TEST_URL; do
+            while ! curl -k $TEST_URL; do
                 echo 'Waiting for Keycloak at' $TEST_URL
                 sleep 2
             done
@@ -247,7 +246,8 @@ def wait_for_url(url, network):
 
 def generateDevKeys(outdir):
     print("Generating Development Keys with SAN for localhost and nginx")
-
+    with open(os.path.join("nginx", "openssl.config")) as f:
+        openssl_config = f.read()
     command = (
         'sh -c "'
         "ls /certs && "
@@ -293,7 +293,7 @@ def generateDevKeys(outdir):
         print(f"Error generating certificates: {e}")
 
 
-def generateProdKeys():
+def generateProdKeys(env):
     run_container(
         dict(
             image="certbot/certbot",
