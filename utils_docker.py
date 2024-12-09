@@ -1,10 +1,12 @@
 import docker
 import json
 import subprocess
+import env
 import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List, Type
+
 here = os.path.abspath(os.path.dirname(__file__))
 
 DOCKER_CLIENT = docker.from_env()
@@ -154,7 +156,7 @@ def debug_container(config):
     config["restart_policy"] = None  # Ensure no restart policy is set
     config["detach"] = False  # Run the container in daemon mode to get container object
     config["tty"] = True  # Allocate a pseudo-TTY for interactive logs
-    config["remove"] = False   # equivalent to --rm
+    config["remove"] = False  # equivalent to --rm
 
     # Now run it
     print("Starting container with debug configuration...")
@@ -241,32 +243,13 @@ def wait_for_url(url, network):
             remove=True,  # Automatically clean up the container after it stops
         )
     )
-    
+
+
 def generateDevKeys(outdir):
     print("Generating Development Keys with SAN for localhost and nginx")
 
-    openssl_config = (
-        "[req]\n"
-        "default_bits = 2048\n"
-        "prompt = no\n"
-        "default_md = sha256\n"
-        "distinguished_name = dn\n"
-        "req_extensions = req_ext\n"
-        "\n"
-        "[dn]\n"
-        "CN = nginx\n"
-        "\n"
-        "[req_ext]\n"
-        "subjectAltName = @alt_names\n"
-        "\n"
-        "[alt_names]\n"
-        "DNS.1 = nginx\n"
-        "DNS.2 = localhost\n"
-        "IP.1 = 127.0.0.1\n"
-    )
-
     command = (
-        "sh -c \""
+        'sh -c "'
         "ls /certs && "
         # Install OpenSSL
         "apk add --no-cache openssl && "
@@ -289,54 +272,54 @@ def generateDevKeys(outdir):
         # Set permissions
         "chmod 644 /certs/privkey.pem /certs/server.crt /certs/fullchain.pem /certs/ca.crt && "
         # Combine it with the standard trust store
-        "cat /certs/ca-certificates.crt /certs/ca.crt /keycloak/keys/keycloak-ca.pem /certs/server.crt > /certs/all-ca-certificates.crt\""
-
+        'cat /certs/ca-certificates.crt /certs/ca.crt /keycloak/keys/keycloak-ca.pem /certs/server.crt > /certs/all-ca-certificates.crt"'
     )
 
     # Run the container to generate the certificate
     try:
         DOCKER_CLIENT.containers.run(
-            image='alpine:latest',
-            name='cert_gen',
+            image="alpine:latest",
+            name="cert_gen",
             command=command,
             volumes={
-                outdir: {
-                    'bind': '/certs/',
-                    'mode': 'rw'
-                },
-                os.path.join(here, "keycloak"): {
-                    'bind': '/keycloak/',
-                    'mode': 'rw'
-                }
+                outdir: {"bind": "/certs/", "mode": "rw"},
+                os.path.join(here, "keycloak"): {"bind": "/keycloak/", "mode": "rw"},
             },
             remove=False,
-            tty=True
+            tty=True,
         )
         print("Certificates generated successfully and stored in:", outdir)
     except Exception as e:
         print(f"Error generating certificates: {e}")
 
 
-def generateProdKeys(outdir, website):
-    DOCKER_CLIENT.containers.run(
-        image='certbot/certbot',
-        command=[
-            'certonly',
-            '--manual',
-            '--preferred-challenges', 'dns',
-            '-d', f"{website}",
-            '-d', f"*.{website}"
-        ],
-        volumes={
-            outdir: {
-                'bind': '/etc/letsencrypt',
-                'mode': 'rw'
-            }
-        },
-        remove=False,
-        tty=True,
-        stdin_open=True
+def generateProdKeys():
+    run_container(
+        dict(
+            image="certbot/certbot",
+            name="cert_gen",
+            command=[
+                "certonly",
+                "--manual",
+                "--preferred-challenges",
+                "dns",
+                "--email",
+                env["USER_EMAIL"],  # Add email for registration
+                "--agree-tos",  # Automatically agree to terms of service
+                "--no-eff-email",  # Automatically say no to EFF email sharing
+                "-d",
+                env["USER_WEBSITE"],
+                "-d",
+                f"*.{env['USER_WEBSITE']}",
+            ],
+            volumes={env["nginx_dir"]: {"bind": "/etc/letsencrypt", "mode": "rw"}},
+            detach=False,  # Attach the process to the terminal
+            remove=True,  # Automatically remove the container after it exits
+            tty=True,  # Allocate a pseudo-TTY
+            stdin_open=True,  # Open stdin for user input
+        )
     )
 
+
 if __name__ == "__main__":
-    generateDevKeys(os.path.join(here, "nginx"))
+    generateProdKeys()

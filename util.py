@@ -1,11 +1,15 @@
 import os
 import sys
 import shutil
+import docker
 
 def substitutions(currdir, env): 
     if os.path.isdir(currdir):
-        for file in os.listdir(currdir):
-            substitutions(os.path.join(currdir, file), env)
+        try:
+            for file in os.listdir(currdir):
+                substitutions(os.path.join(currdir, file), env)
+        except:
+            print(f"Couldn't process {currdir}")
     else:
         if currdir.endswith(".template"):
             print("Applying substitutions to " + currdir)
@@ -30,3 +34,5 @@ def initializeFiles():
             sys.exit(1)
         else:
             print("Running in GitHub Actions, continuing without exiting.")
+
+            import docker

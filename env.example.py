@@ -2,7 +2,11 @@ import os
 import requests
 import json 
 
-current_dir = os.path.abspath(os.path.dirname(__file__))
+# Check if the CURRENT_DIR environment variable is set (for Docker container case)
+current_dir = os.getenv('CURRENT_DIR', os.path.abspath(os.path.dirname(__file__)))
+
+print(f"Relative directory : {current_dir}")
+
 keycloak_dir = os.path.join(current_dir, "keycloak")
 opentdf_dir = os.path.join(current_dir, "opentdf")
 nginx_dir = os.path.join(current_dir, "nginx")
@@ -11,6 +15,7 @@ webapp_dir = os.path.join(current_dir, "webapp")
 # Most common options to change
 BRAND_NAME = "yourbrand"
 USER_WEBSITE = "localhost"
+USER_EMAIL = "youremail@example.com"
 PROTOCOL_USER_WEBSITE = "https://localhost"
 TLD = ".us"
 LOCAL_SERVER_mDNS = "localhost"

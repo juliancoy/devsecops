@@ -228,3 +228,5 @@ cython_debug/
 /gitlab-ce/
 env.py
 /arkavo-production/
+nginx/openssl.config
+nginx/.certbot.lock
