@@ -230,3 +230,5 @@ env.py
 /arkavo-production/
 nginx/openssl.config
 nginx/.certbot.lock
+certs/openssl.config
+certs/genProdKeys.sh

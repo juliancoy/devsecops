@@ -28,7 +28,9 @@ def substitutions(currdir, env):
                 templateText = f.read()
             for k, v in vars(env).items():
                 templateText = templateText.replace("$"+k, str(v))
-            with open(currdir.replace(".template",""), 'w+') as f:
+            newFile = currdir.replace(".template","")
+            print(f"Writing to {newFile}")
+            with open(newFile, 'w+') as f:
                 f.write(templateText)
 
 def initializeFiles():

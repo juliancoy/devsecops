@@ -225,7 +225,8 @@ def wait_for_url(url, network):
         dict(
             image="curlimages/curl:latest",  # Use the curl-specific image
             name="url_test",
-            network_mode="host",  # Set the network mode to host
+            network=network,
+            #network_mode="host",  # Set the network mode to host
             environment={"TEST_URL": url},
             command=[
                 "sh",
@@ -246,7 +247,7 @@ def wait_for_url(url, network):
 
 def generateDevKeys(outdir):
     print("Generating Development Keys with SAN for localhost and nginx")
-    with open(os.path.join("nginx", "openssl.config")) as f:
+    with open(os.path.join("certs", "openssl.config")) as f:
         openssl_config = f.read()
     command = (
         'sh -c "'
