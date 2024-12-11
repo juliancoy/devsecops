@@ -32,8 +32,8 @@ server:
   auth:
     enabled: true
     enforceDPoP: false
-    public_client_id: 'opentdf-public'
-    audience: admin
+    public_client_id: 'web-client'
+    audience: account
     issuer: $KEYCLOAK_INTERNAL_AUTH_URL/realms/opentdf
     policy:
       ## Default policy for all requests

@@ -78,7 +78,7 @@
     }, {
       "id" : "e6c0782d-71ce-4af4-a1ce-44f0cdd1be46",
       "name" : "user",
-      "description" : "Default role for new users of $BRAND_NAME, including the ability to view all users",
+      "description" : "Default role for new users of web-client, including the ability to view all users",
       "composite" : false,
       "clientRole" : false,
       "containerId" : "c294e310-4d46-48ce-9059-2fd0ae926a01",
@@ -583,7 +583,7 @@
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "088dcdc6-04d4-4627-8543-07f591f58fd8",
-    "clientId" : "$BRAND_NAME-admin",
+    "clientId" : "web-client-admin",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
@@ -682,7 +682,7 @@
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "5f16ad72-acc3-4421-9976-c3a7c5e8a5e6",
-    "clientId" : "$BRAND_NAME",
+    "clientId" : "web-client",
     "name" : "",
     "description" : "",
     "rootUrl" : "$PROTOCOL_USER_WEBSITE",
