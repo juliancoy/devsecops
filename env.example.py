@@ -11,6 +11,9 @@ keycloak_dir = os.path.join(current_dir, "keycloak")
 opentdf_dir = os.path.join(current_dir, "opentdf")
 nginx_dir = os.path.join(current_dir, "nginx")
 webapp_dir = os.path.join(current_dir, "webapp")
+org_dir = os.path.join(current_dir, "org")
+certs_dir = os.path.join(current_dir, "certs")
+keys_dir = os.path.join(current_dir, "certs", "keys")
 
 # Most common options to change
 BRAND_NAME = "yourbrand"
@@ -72,6 +75,7 @@ VITE_KEYCLOAK_USERINFO_ENDPOINT = (
     f"{KEYCLOAK_HOST}/auth/realms/{KEYCLOAK_REALM}/protocol/openid-connect/userinfo"
 )
 VITE_KEYCLOAK_SERVER_URL = KEYCLOAK_HOST + "/auth"
+KEYCLOAK_SERVER_URL_INTERNAL = "https://keycloak:8443/auth"
 VITE_KEYCLOAK_CLIENT_ID = BRAND_NAME
 VITE_KEYCLOAK_REALM = KEYCLOAK_REALM
 VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
@@ -80,10 +84,10 @@ KEYCLOAK_ADMIN_PASSWORD = "changeme" # Secrets
 # Other ish
 # Google OAuth Config
 GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
-VITE_GOOGLE_SCOPES = "openid profile email"
-VITE_GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-VITE_GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-VITE_GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
+GOOGLE_SCOPES = "openid profile email"
+GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
 
 # GitHub OAuth Config
 GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
@@ -151,19 +155,19 @@ opentdf = dict(
     restart_policy={"Name": "always"},
     ports={"8080/tcp": 8080},
     environment={
-        #"KEYCLOAK_BASE_URL": KEYCLOAK_AUTH_URL,
         "KEYCLOAK_BASE_URL": KEYCLOAK_INTERNAL_AUTH_URL,
     },
     volumes={
-        f"{nginx_dir}/all-ca-certificates.crt": {"bind": "/etc/ssl/certs/ca-certificates.crt", "mode": "ro"},
+        #f"{certs_dir}/all-ca-certificates.crt": {"bind": "/etc/ssl/certs/ca-certificates.crt", "mode": "ro"},
         f"{opentdf_dir}/opentdf.yaml": {"bind": "/app/opentdf.yaml", "mode": "ro"},
-        f"{keycloak_dir}/kas-cert.pem": {"bind": "/keys/kas-cert.pem", "mode": "ro"},
-        f"{keycloak_dir}/kas-ec-cert.pem": {"bind": "/keys/kas-ec-cert.pem", "mode": "ro"},
-        f"{keycloak_dir}/kas-private.pem": {"bind": "/keys/kas-private.pem", "mode": "ro"},
-        f"{keycloak_dir}/kas-ec-private.pem": {"bind": "/keys/kas-ec-private.pem", "mode": "ro"},
-
+        f"{keys_dir}/kas-cert.pem": {"bind": "/keys/kas-cert.pem", "mode": "ro"},
+        f"{keys_dir}/kas-ec-cert.pem": {"bind": "/keys/kas-ec-cert.pem", "mode": "ro"},
+        f"{keys_dir}/kas-private.pem": {"bind": "/keys/kas-private.pem", "mode": "ro"},
+        f"{keys_dir}/kas-ec-private.pem": {"bind": "/keys/kas-ec-private.pem", "mode": "ro"},
+        #f"{keys_dir}/keycloak-ca.pem": {"bind": "/etc/ssl/certs/ca-certificates.crt", "mode": "ro"},
+        f"{keys_dir}/keycloak-ca.pem": {"bind": "/usr/local/share/ca-certificates/ca-certificates.crt", "mode": "ro"},
         # Mount the CA key from nginx directory
-        f"{nginx_dir}/ca.key": {"bind": "/app/nginx/ca.key", "mode": "ro"}
+        #f"{certs_dir}/ca.key": {"bind": "/app/nginx/ca.key", "mode": "ro"}
     },
     healthcheck={
         "test": ["CMD-SHELL", f"curl -sf {KEYCLOAK_AUTH_URL} || exit 1"],
@@ -185,15 +189,15 @@ keycloak = {
     "entrypoint": "/opt/keycloak/keycloak-startup.sh",
     "detach": True,
     "volumes": {
-        os.path.join(keycloak_dir, "keys/localhost.crt"): {
+        os.path.join(keys_dir, "localhost.crt"): {
             "bind": "/etc/x509/tls/localhost.crt",
             "mode": "ro",  # Read-only
         },
-        os.path.join(keycloak_dir, "keys/localhost.key"): {
+        os.path.join(keys_dir, "localhost.key"): {
             "bind": "/etc/x509/tls/localhost.key",
             "mode": "ro",  # Read-only
         },
-        os.path.join(keycloak_dir, "keys/ca.jks"): {
+        os.path.join(keys_dir, "ca.jks"): {
             "bind": "/truststore/truststore.jks",
             "mode": "ro",  # Read-only
         },
@@ -209,6 +213,10 @@ keycloak = {
             "bind": "/opt/keycloak/keycloak-startup.sh",
             "mode": "ro",  # Read-only
         },
+    },
+    "ports":{
+        '8888/tcp': 8888,   # equivalent to -p 80:80
+        '8443/tcp': 8443  # equivalent to -p 443:443
     },
     "environment": {
         "KC_PROXY": "edge",
@@ -226,11 +234,12 @@ keycloak = {
         "KC_HTTP_ENABLED": "true",
         "KC_HTTP_PORT": "8888",
         "KC_HTTPS_PORT": "8443",
-        "KEYCLOAK_ADMIN": "admin",
-        "KEYCLOAK_ADMIN_PASSWORD": "changeme",
+        "KEYCLOAK_ADMIN": KEYCLOAK_ADMIN,
+        "KEYCLOAK_ADMIN_PASSWORD": KEYCLOAK_ADMIN_PASSWORD,
         "KEYCLOAK_FRONTEND_URL": KEYCLOAK_AUTH_URL,
         "KC_HOSTNAME_URL": KEYCLOAK_AUTH_URL,
         "KC_FEATURES": "preview,token-exchange",
+        #"KC_LOG_LEVEL":"DEBUG",
         "KC_HEALTH_ENABLED": "true",
         "KC_HTTPS_KEY_STORE_PASSWORD": "password",
         "KC_HTTPS_KEY_STORE_FILE": "/truststore/truststore.jks",
@@ -247,7 +256,7 @@ nginx = dict(
     network=BRAND_NAME,  # equivalent to --network $BRAND_NAME
     remove=True,   # equivalent to --rm
     volumes={
-        os.path.join(nginx_dir, 'conf', 'nginx.conf'): {
+        os.path.join(nginx_dir, 'nginx.conf'): {
             'bind': '/etc/nginx/nginx.conf',
             'mode': 'rw'
         },
@@ -298,26 +307,30 @@ webapp = dict(
     command="sh -c 'npm install && npm run dev'",
 )
 
-orgbackend = dict(
-    image="node:22",
+go_installs_dir = os.path.join(org_dir, "installs")  # Directory to hold Go installs on the host
+
+org = dict(
+    image="cosmtrek/air:latest",
     detach=True,  # Runs the container in detached mode
-    name=f"webapp",
+    name=f"org",
     network=BRAND_NAME,
     remove=True,  # Automatically removes the container when stopped
+    ports={
+        "8085": "8085"
+    },
     volumes={
-        webapp_dir: {"bind": "/usr/src/app", "mode": "rw"}
+        org_dir: {"bind": "/usr/src/app", "mode": "rw"},
+        go_installs_dir: {"bind": "/go/pkg/mod", "mode": "rw"},  # Volume for Go installs
+        certs_dir: {"bind": "/certs", "mode": "rw"},
     },
     working_dir="/usr/src/app",
-    ports={
-        "5173": "3001"
-    },
     environment={
-        "NODE_ENV": "development",
-        "VITE_KEYCLOAK_SERVER_URL": VITE_KEYCLOAK_SERVER_URL,
-        "VITE_KEYCLOAK_REALM": VITE_KEYCLOAK_REALM,
-        "VITE_KEYCLOAK_CLIENT_ID": VITE_KEYCLOAK_CLIENT_ID,
-        "VITE_ORG_BACKEND_URL": VITE_ORG_BACKEND_URL,
-        "VITE_KAS_ENDPOINT": VITE_KAS_ENDPOINT,
+        "ORG_BACKEND_URL": VITE_ORG_BACKEND_URL,
+        "FRONTEND_URL": USER_WEBSITE,
+        "ALLOWED_ORIGINS": "https://localhost,https://arkavo.ai",
+        "KEYCLOAK_ADMIN": KEYCLOAK_ADMIN,
+        "KEYCLOAK_ADMIN_PASSWORD":KEYCLOAK_ADMIN_PASSWORD,
+        "KEYCLOAK_SERVER_URL":KEYCLOAK_SERVER_URL_INTERNAL
     },
-    command="sh -c 'npm install && npm run dev'",
+    command=["sh", "-c", "go build && ./main"]
 )

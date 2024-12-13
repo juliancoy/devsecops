@@ -162,6 +162,13 @@ def debug_container(config):
     DOCKER_CLIENT.containers.run(**config)
 
 
+def stop_container(container_name):
+    try:
+        container = DOCKER_CLIENT.containers.get(container_name)
+        container.stop()
+    except:
+        print("Couldn't stop container {container_name}. Maybe its not running")
+
 def run_container(config):
     print(f'\033[4;32mRunning container {config["name"]}\033[0m')
     container_name = config["name"]
@@ -221,6 +228,7 @@ def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
 
 def wait_for_url(url, network):
     # Create and start the container
+    stop_container("url_test")
     run_container(
         dict(
             image="curlimages/curl:latest",  # Use the curl-specific image
