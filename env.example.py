@@ -118,8 +118,6 @@ VITE_PUBLIC_URL_ON_EC2 = "localhost"
 # Redirects
 VITE_GOOGLE_REDIRECT_URI = f"https://{VITE_PUBLIC_URL}"
 VITE_GITHUB_REDIRECT_URI = f"{VITE_PUBLIC_URL}"
-VITE_KEYCLOAK_REDIRECT_URI = f"{VITE_PUBLIC_URL}"
-KEYCLOAK_REDIRECT_URI = f"{VITE_KEYCLOAK_REDIRECT_URI}"
 VITE_ORG_BACKEND_URL = "https://localhost/org"
 VITE_FRONTEND_SERVER_URL = f"https://{VITE_PUBLIC_URL}"
 
@@ -214,10 +212,6 @@ keycloak = {
             "bind": "/opt/keycloak/keycloak-startup.sh",
             "mode": "ro",  # Read-only
         },
-    },
-    "ports":{
-        '8888/tcp': 8888,   # equivalent to -p 80:80
-        '8443/tcp': 8443  # equivalent to -p 443:443
     },
     "environment": {
         "KC_PROXY": "edge",

@@ -8,6 +8,12 @@ from typing import Dict, Optional, Any, List, Type
 
 here = os.path.abspath(os.path.dirname(__file__))
 
+# if colima is installed, point socket to that
+colima_socket_path = f"unix://{os.path.expanduser('~')}/.colima/default/docker.sock"
+if os.path.exists(colima_socket_path):
+    print("Colima socket detected. Attaching to that")
+    os.environ["DOCKER_HOST"] = colima_socket_path
+
 DOCKER_CLIENT = docker.from_env()
 
 

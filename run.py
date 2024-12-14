@@ -41,11 +41,11 @@ utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="keycloakdb:5432")
 utils_docker.run_container(env.keycloak)
 
 # --- NGINX ---
-if not os.path.isfile("nginx/ca.crt"):
+if not os.path.isfile("certs/ca.crt"):
     if env.IS_EC2:
-        utils_docker.generateProdKeys(outdir = env.nginx_dir, website=env.USER_WEBSITE)
+        utils_docker.generateProdKeys(outdir = env.certs_dir, website=env.USER_WEBSITE)
     else:
-        utils_docker.generateDevKeys(outdir = env.nginx_dir)
+        utils_docker.generateDevKeys(outdir = env.certs_dir)
 utils_docker.run_container(env.nginx)
 
 # --- OPENTDF ---
