@@ -20,7 +20,7 @@ var (
 	orgBackendClient *gocloak.GoCloak
 	adminToken       *gocloak.JWT
 	tokenMutex       sync.Mutex // Prevent concurrent token refreshes
-	db               *gorm.DB   // Database connection
+	database         *gorm.DB   // Database connection
 )
 
 // Message represents a chat message stored in the database
@@ -58,14 +58,14 @@ func main() {
 	fmt.Println("Successfully authenticated admin!")
 
 	// Initialize the database
-	db, err = gorm.Open(sqlite.Open("chat.db"), &gorm.Config{})
+	database, err = gorm.Open(sqlite.Open("chat.db"), &gorm.Config{})
 	if err != nil {
 		fmt.Printf("Failed to connect to database: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Migrate the schema
-	if err := db.AutoMigrate(&Message{}); err != nil {
+	if err := database.AutoMigrate(&Message{}); err != nil {
 		fmt.Printf("Failed to migrate database schema: %v\n", err)
 		os.Exit(1)
 	}
@@ -73,74 +73,74 @@ func main() {
 	// Create a new Gin router
 	router := gin.Default()
 
-	// Define the base endpoint
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "ok",
-			"message": "Keycloak backend is running",
+	// Define a group for routes under the /org base path
+	orgRoutes := router.Group("/org")
+	{
+		orgRoutes.GET("/", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"status":  "ok",
+				"message": "Keycloak backend is running",
+			})
 		})
-	})
 
-	// Define the /users endpoint
-	router.GET("/users", func(c *gin.Context) {
-		// Ensure the admin token is valid
-		ctx := context.Background()
-		err := ensureTokenValidity(ctx, username, password, adminRealm)
-		if err != nil {
-			fmt.Printf("Failed to refresh admin token: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate admin"})
-			return
-		}
+		orgRoutes.GET("/users", func(c *gin.Context) {
+			// Ensure the admin token is valid
+			ctx := context.Background()
+			err := ensureTokenValidity(ctx, username, password, adminRealm)
+			if err != nil {
+				fmt.Printf("Failed to refresh admin token: %v\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate admin"})
+				return
+			}
 
-		// Fetch users from Keycloak
-		users, err := orgBackendClient.GetUsers(ctx, adminToken.AccessToken, userRealm, gocloak.GetUsersParams{})
-		if err != nil {
-			fmt.Printf("Failed to fetch users: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
-			return
-		}
+			// Fetch users from Keycloak
+			users, err := orgBackendClient.GetUsers(ctx, adminToken.AccessToken, userRealm, gocloak.GetUsersParams{})
+			if err != nil {
+				fmt.Printf("Failed to fetch users: %v\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+				return
+			}
 
-		// Return the user list as JSON
-		c.JSON(http.StatusOK, gin.H{"users": users})
-	})
+			// Return the user list as JSON
+			c.JSON(http.StatusOK, gin.H{"users": users})
+		})
 
-	// Define the /messages endpoint (POST)
-	router.POST("/messages", func(c *gin.Context) {
-		var message Message
-		if err := c.ShouldBindJSON(&message); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
-			return
-		}
+		orgRoutes.POST("/messages", func(c *gin.Context) {
+			var message Message
+			if err := c.ShouldBindJSON(&message); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+				return
+			}
 
-		message.ID = uuid.New()
-		message.Timestamp = time.Now()
+			message.ID = uuid.New()
+			message.Timestamp = time.Now()
 
-		if err := db.Create(&message).Error; err != nil {
-			fmt.Printf("Failed to save message: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message"})
-			return
-		}
+			if err := database.Create(&message).Error; err != nil {
+				fmt.Printf("Failed to save message: %v\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message"})
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"status": "Message sent successfully"})
-	})
+			c.JSON(http.StatusOK, gin.H{"status": "Message sent successfully"})
+		})
 
-	// Define the /messages endpoint (GET)
-	router.GET("/messages", func(c *gin.Context) {
-		recipient := c.Query("recipient")
-		if recipient == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Recipient query parameter is required"})
-			return
-		}
+		orgRoutes.GET("/messages", func(c *gin.Context) {
+			recipient := c.Query("recipient")
+			if recipient == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Recipient query parameter is required"})
+				return
+			}
 
-		var messages []Message
-		if err := db.Where("recipient = ?", recipient).Order("timestamp asc").Find(&messages).Error; err != nil {
-			fmt.Printf("Failed to fetch messages: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch messages"})
-			return
-		}
+			var messages []Message
+			if err := database.Where("recipient = ?", recipient).Order("timestamp asc").Find(&messages).Error; err != nil {
+				fmt.Printf("Failed to fetch messages: %v\n", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch messages"})
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"messages": messages})
-	})
+			c.JSON(http.StatusOK, gin.H{"messages": messages})
+		})
+	}
 
 	// Start the server on port 8085
 	port := "8085"

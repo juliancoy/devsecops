@@ -1,6 +1,4 @@
-@echo OFF
-
-REM Initialize temporary keys for use with a KAS. No HSM for now.
+echo "Initialize temporary keys for use with a KAS. No HSM for now."
 
 mkdir keys
 

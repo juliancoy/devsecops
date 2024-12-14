@@ -58,7 +58,6 @@ http {
 
         location /org/ {
             set $NGINX_ORG_UPSTREAM "org";
-            rewrite ^/org(/.*)?$ $1 break;
             proxy_pass http://$NGINX_ORG_UPSTREAM:8085;
 
             proxy_set_header Host $host;

@@ -56,3 +56,8 @@ utils_docker.run_container(env.opentdf)
 
 # --- ORG --- 
 utils_docker.run_container(env.org)
+
+# --- MATRIX SYNAPSE ---
+utils_docker.run_container(env.synapsedb)
+utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="synapsedb:5432")
+utils_docker.run_container(env.synapse)

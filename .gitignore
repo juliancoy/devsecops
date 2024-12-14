@@ -232,3 +232,4 @@ nginx/openssl.config
 nginx/.certbot.lock
 certs/openssl.config
 certs/genProdKeys.sh
+nginx/nginx.conf
