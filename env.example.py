@@ -255,19 +255,19 @@ nginx = dict(
             'bind': '/etc/nginx/nginx.conf',
             'mode': 'rw'
         },
-        os.path.join(nginx_dir, 'ssl'): {
+        os.path.join(certs_dir, 'ssl'): {
             'bind': '/etc/nginx/ssl',
             'mode': 'rw'
         },
-        os.path.join(nginx_dir, 'html'): {
+        os.path.join(certs_dir, 'html'): {
             'bind': '/usr/share/nginx/html',
             'mode': 'rw'
         },
-        f"{nginx_dir}/fullchain.pem": {
+        f"{certs_dir}/fullchain.pem": {
             'bind': '/keys/fullchain.pem',
             'mode': 'rw'
         },
-        f"{nginx_dir}/privkey.pem": {
+        f"{certs_dir}/privkey.pem": {
             'bind': '/keys/privkey.pem',
             'mode': 'rw'
         }
@@ -328,4 +328,62 @@ org = dict(
         "KEYCLOAK_SERVER_URL":KEYCLOAK_SERVER_URL_INTERNAL
     },
     command=["sh", "-c", "go build && ./main"]
+)
+
+# Add to env.py:
+
+# Matrix Synapse Config
+synapse = dict(
+    image="matrixdotorg/synapse:latest",
+    detach=True,
+    name="synapse",
+    network=BRAND_NAME,
+    restart_policy={"Name": "always"},
+    environment={
+        "SYNAPSE_SERVER_NAME": USER_WEBSITE,
+        "SYNAPSE_REPORT_STATS": "no",
+        "POSTGRES_HOST": "synapsedb",
+        "POSTGRES_USER": "synapse",
+        "POSTGRES_PASSWORD": "changeme",
+        "POSTGRES_DB": "synapse",
+        # Keycloak OIDC integration
+        "SYNAPSE_OIDC_PROVIDERS_KEYCLOAK_ISSUER": f"{KEYCLOAK_HOST}/realms/{KEYCLOAK_REALM}",
+        "SYNAPSE_OIDC_PROVIDERS_KEYCLOAK_CLIENT_ID": "matrix-synapse",
+        "SYNAPSE_OIDC_PROVIDERS_KEYCLOAK_CLIENT_SECRET": "changeme",  # Change this
+        "SYNAPSE_OIDC_PROVIDERS_KEYCLOAK_SCOPES": ["openid", "profile"],
+    },
+    volumes={
+        os.path.join(current_dir, "synapse"): {"bind": "/data", "mode": "rw"},
+    },
+    ports={
+        "8008/tcp": 8008
+    },
+    healthcheck={
+        "test": ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"],
+        "interval": 5000000000,  # 5s
+        "timeout": 5000000000,   # 5s
+        "retries": 5
+    }
+)
+
+synapsedb = dict(
+    image="postgres:15-alpine",
+    detach=True,
+    name="synapsedb",
+    network=BRAND_NAME,
+    restart_policy={"Name": "always"},
+    environment={
+        "POSTGRES_USER": "synapse",
+        "POSTGRES_PASSWORD": "changeme",
+        "POSTGRES_DB": "synapse"
+    },
+    volumes={
+        os.path.join(current_dir, "synapse", "postgres"): {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+    },
+    healthcheck={
+        "test": ["CMD-SHELL", "pg_isready -U synapse"],
+        "interval": 5000000000,  # 5s
+        "timeout": 5000000000,   # 5s
+        "retries": 10
+    }
 )
