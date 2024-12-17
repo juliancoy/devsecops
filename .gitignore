@@ -228,3 +228,12 @@ cython_debug/
 /gitlab-ce/
 env.py
 /arkavo-production/
+nginx/openssl.config
+nginx/.certbot.lock
+certs/openssl.config
+certs/genProdKeys.sh
+nginx/nginx.conf
+synapse/registration_shared_secret
+synapse/codecollective.signing.key
+synapse/codecollective_synapse.signing.key
+synapse/homeserver.yaml
