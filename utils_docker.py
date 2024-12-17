@@ -336,5 +336,29 @@ def generateProdKeys(env):
     )
 
 
+# Download llama 3.2 if not extant
+def model_exists(model_name):
+    try:
+        result = run_container(
+            dict(
+                image="curlimages/curl",
+                name="ModelCheck",
+                command=[
+                    "curl",
+                    "-s",  # silent mode
+                    f"http://localhost:11434/api/show",
+                    "-d",
+                    json.dumps({"name": model_name}),
+                ],
+                network_mode="host",
+                remove=True,
+                detach=False,
+            )
+        )
+        return True
+    except:  # If the model doesn't exist, the API will return an error
+        return False
+
+
 if __name__ == "__main__":
     generateProdKeys()

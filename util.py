@@ -1,7 +1,7 @@
 import os
 import sys
 import shutil
-import docker
+import subprocess
 
 def writeViteEnv(env, output_file="webapp/.env"):
     print("Writing environment file for web app")
@@ -24,11 +24,12 @@ def substitutions(currdir, env):
     else:
         if currdir.endswith(".template"):
             print("Applying substitutions to " + currdir)
+            newFile = currdir.replace(".template","")
             with open(currdir, 'r') as f:
                 templateText = f.read()
             for k, v in vars(env).items():
                 templateText = templateText.replace("$"+k, str(v))
-            newFile = currdir.replace(".template","")
+                newFile = newFile.replace("$"+k, str(v)) # also templetize the filename (!)
             print(f"Writing to {newFile}")
             with open(newFile, 'w+') as f:
                 f.write(templateText)
@@ -49,3 +50,22 @@ def initializeFiles():
             print("Running in GitHub Actions, continuing without exiting.")
 
             import docker
+
+def check_nvidia_gpu():
+    print("NVIDIA GPU Detected on system")
+    try:
+        # Try nvidia-smi command
+        subprocess.run(["nvidia-smi"], check=True, capture_output=True)
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return False
+    
+def check_amd_gpu():
+    print("AMD GPU Detected on system")
+    try:
+        # Try rocm-smi command
+        subprocess.run(["rocm-smi"], check=True, capture_output=True)
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return False
+    
