@@ -2,3 +2,9 @@ media
 homeserver.yaml
 registration*
 *.log.config
+
+codecollective.signing.key
+codecollective_synapse.signing.key
+homeserver.yaml
+homeserver.log.20*
+registration_shared_secret

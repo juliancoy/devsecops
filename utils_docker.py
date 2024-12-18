@@ -360,5 +360,32 @@ def model_exists(model_name):
         return False
 
 
+# to test a model
+# curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq
+
+def pullModels(models_to_pull):
+    for model_name in models_to_pull:
+        if not model_exists(model_name):
+            print(f"Pulling model: {model_name}")
+            run_container(
+                dict(
+                    image="curlimages/curl",
+                    name="ModelPull",
+                    command=[
+                        "curl",
+                        "-X",
+                        "POST",
+                        "http://localhost:11434/api/pull",
+                        "-d",
+                        json.dumps({"model": model_name}),
+                    ],
+                    network_mode="host",
+                    remove=True,
+                    detach=False,
+                )
+            )
+        else:
+            print(f"Model {model_name} already exists locally")
+
 if __name__ == "__main__":
     generateProdKeys()

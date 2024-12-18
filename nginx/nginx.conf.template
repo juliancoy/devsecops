@@ -108,5 +108,34 @@ http {
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
         }
+
+        # Proxy to Caddy server on bluesky-vm
+        location /bluesky/ {
+            rewrite ^/bluesky(/.*)?$ $1 break;
+
+            # Set the upstream to the Multipass VM
+            proxy_pass http://bluesky-vm.local:80;
+
+            # Pass headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Configure proxy timeouts
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+
+            # Allow for proper CORS
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+
+            if ($request_method = OPTIONS) {
+                return 204;
+            }
+        }
+
     }
 }

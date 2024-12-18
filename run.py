@@ -65,30 +65,15 @@ utils_docker.run_container(env.synapse)
 
 # --- OLLAMA !!! ---
 utils_docker.run_container(env.ollama)
+utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
 
-models_to_pull = ["llama3.2", "ALIENTELLIGENCE/sigmundfreud"]
-for model_name in models_to_pull:
-    if not utils_docker.model_exists(model_name):
-        print(f"Pulling model: {model_name}")
-        utils_docker.run_container(
-            dict(
-                image="curlimages/curl",
-                name="ModelPull",
-                command=[
-                    "curl",
-                    "-X",
-                    "POST",
-                    "http://localhost:11434/api/pull",
-                    "-d",
-                    json.dumps({"model": model_name}),
-                ],
-                network_mode="host",
-                remove=True,
-                detach=False,
-            )
-        )
-    else:
-        print(f"Model {model_name} already exists locally")
+# --- OPENTDF ---
+utils_docker.run_container(env.opentdfdb)
+utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="opentdfdb:5432")
+utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.BRAND_NAME)
+utils_docker.run_container(env.opentdf)
 
-# to test a model
-# curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq
+# --- BLUESKY PDS --- 
+utils_docker.run_container(env.bskydb)
+utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="bskydb:5432")
+utils_docker.run_container(env.bsky)

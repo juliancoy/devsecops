@@ -42,7 +42,7 @@ registration_requires_token: true
 oidc_providers:
   - idp_id: keycloak
     idp_name: "KeyCloak server"
-    issuer: "$KEYCLOAK_INTERNAL_CHECK_ADDR/realms/opentdf"
+    issuer: "$KEYCLOAK_HTTPS_INTERNAL_AUTH_URL/realms/opentdf"
     client_id: "synapse"
     client_secret: "$synapse_client_secret"
     scopes: ["openid", "profile"]
