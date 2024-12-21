@@ -109,33 +109,51 @@ http {
             proxy_set_header Connection "upgrade";
         }
 
-        # Proxy to Caddy server on bluesky-vm
+        # Main PDS location block for xrpc endpoints
+        location /xrpc/ {
+            set $BLUESKY_UPSTREAM "pds";
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;
+            
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         location /bluesky/ {
+            set $BLUESKY_UPSTREAM "pds";
             rewrite ^/bluesky(/.*)?$ $1 break;
 
-            # Set the upstream to the Multipass VM
-            proxy_pass http://bluesky-vm.local:80;
+            # Use port 3000 which is the default PDS port
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;
 
-            # Pass headers
+            # Required for websocket support used by some PDS features
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+
+            # Standard proxy headers
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
 
-            # Configure proxy timeouts
-            proxy_connect_timeout 5s;
-            proxy_read_timeout 60s;
+            # Longer timeouts for PDS operations
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 120s;
             proxy_send_timeout 60s;
-
-            # Allow for proper CORS
-            add_header Access-Control-Allow-Origin *;
-            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
-            add_header Access-Control-Allow-Headers "Authorization, Content-Type";
-
-            if ($request_method = OPTIONS) {
-                return 204;
-            }
         }
+
+        # Add specific location for atproto-did endpoint
+        location /.well-known/atproto-did {
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;
+            proxy_set_header Host $host;
+        }
+
 
     }
 }

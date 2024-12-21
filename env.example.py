@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import copy 
 import util
 
 # Check if the CURRENT_DIR environment variable is set (for Docker container case)
@@ -72,7 +73,7 @@ else:
 KEYCLOAK_REALM = "opentdf"
 KEYCLOAK_PROTOCOL = "https"
 KEYCLOAK_PORT = ""  # if applicable
-KEYCLOAK_INTERNAL_URL = "keycloak:8888/keycloak/"
+KEYCLOAK_INTERNAL_URL = "keycloak:8888/keycloak"
 KEYCLOAK_INTERNAL_CHECK_ADDR = f"http://{KEYCLOAK_INTERNAL_URL}"
 KEYCLOAK_INTERNAL_AUTH_URL = f"http://{KEYCLOAK_INTERNAL_URL}/auth"
 KEYCLOAK_HOST = KEYCLOAK_PROTOCOL + "://" + KEYCLOAK_BASE_URL
@@ -150,7 +151,8 @@ opentdfdb = dict(
         "POSTGRES_DB": "opentdf",
     },
     volumes={
-        "OPENTDF_POSTGRES" + distinguisher: {
+        "OPENTDF_POSTGRES"
+        + distinguisher: {
             "bind": "/var/lib/postgresql/data",
             "mode": "rw",
         }
@@ -202,14 +204,13 @@ opentdf = dict(
 
 
 # Keycloak config
-keycloakdb = opentdfdb.copy()
+keycloakdb = copy.deepcopy(opentdfdb)
 keycloakdb["name"] = "keycloakdb"
+keycloakdb["environment"]["POSTGRES_DB"] = "keycloak"
 keycloakdb["volumes"] = {
-        "KEYCLOAK_POSTGRES" + distinguisher: {
-            "bind": "/var/lib/postgresql/data",
-            "mode": "rw"
-        }
-    }
+    "KEYCLOAK_POSTGRES"
+    + distinguisher: {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+}
 
 keycloak = {
     "name": "keycloak",
@@ -279,7 +280,7 @@ nginx = dict(
     image="nginx:latest",
     name="nginx",
     detach=True,  # equivalent to -d
-    network=NETWORK_NAME,  
+    network=NETWORK_NAME,
     restart_policy={"Name": "always"},
     volumes={
         os.path.join(nginx_dir, "nginx.conf"): {
@@ -360,7 +361,6 @@ synapse = dict(
     volumes={
         os.path.join(current_dir, "synapse"): {"bind": "/data", "mode": "rw"},
     },
-    ports={"8008/tcp": 8008},
     healthcheck={
         "test": ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"],
         "interval": 5000000000,  # 5s
@@ -369,15 +369,18 @@ synapse = dict(
     },
 )
 
-synapsedb = opentdfdb.copy()
+synapsedb = copy.deepcopy(opentdfdb)
 synapsedb["name"] = "synapsedb"
-#synapsedb["environment"]["POSTGRES_DB"] = "synapse"
+synapsedb["environment"] = {
+    "POSTGRES_PASSWORD": "changeme",
+    "POSTGRES_USER": "postgres",
+    "POSTGRES_DB": "synapse",
+    "POSTGRES_INITDB_ARGS": "--encoding=UTF8 --lc-collate=C --lc-ctype=C",
+}
 synapsedb["volumes"] = {
-        "SYNAPSE_POSTGRES" + distinguisher: {
-            "bind": "/var/lib/postgresql/data",
-            "mode": "rw"
-        }
-    }
+    "SYNAPSE_POSTGRES"
+    + distinguisher: {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+}
 
 
 # Base configuration
@@ -421,3 +424,44 @@ elif util.check_amd_gpu():
             }
         }
     }
+
+
+# BLUESKY CRYPTO SETUP
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
+import secrets
+
+# Generate a secp256k1 private key
+private_key = ec.generate_private_key(ec.SECP256K1())
+private_key_bytes = private_key.private_numbers().private_value.to_bytes(
+    32, byteorder="big"
+)
+
+
+bluesky = dict(
+    image="ghcr.io/bluesky-social/pds:latest",
+    detach=True,
+    name="pds",
+    network=NETWORK_NAME,  # Make sure it's on the same network as nginx
+    volumes={
+        "bluesky_pds": {"bind": "/pds", "mode": "rw"},
+    },
+    environment=dict(
+        PDS_HOSTNAME=PROTOCOL_USER_WEBSITE,
+        PDS_JWT_SECRET=secrets.token_hex(16),
+        ADMIN_HANDLE="admin",
+        ADMIN_USERNAME='admin',
+        PDS_ADMIN_PASSWORD="changeme",
+        PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=private_key_bytes.hex(),
+        PDS_DATA_DIRECTORY="/pds",
+        PDS_BLOBSTORE_DISK_LOCATION="/pds/blocks",
+        PDS_BLOB_UPLOAD_LIMIT=52428800,
+        PDS_DID_PLC_URL="http://local.test:2582",
+        PDS_BSKY_APP_VIEW_URL="http://local.test:2583",
+        PDS_BSKY_APP_VIEW_DID="did:web:local.test:2583",
+        PDS_REPORT_SERVICE_URL="http://local.test:3000",
+        PDS_REPORT_SERVICE_DID="did:web:local.test:3000",
+        PDS_CRAWLERS="http://local.test:4000",
+        LOG_ENABLED=True,
+    ),
+)

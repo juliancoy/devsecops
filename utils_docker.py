@@ -231,7 +231,46 @@ def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
             )
             time.sleep(2)
 
-
+def wait_for_db_localhost(db_port=5432, db_user="postgres", max_attempts=30, delay=2):
+    """
+    Wait for a PostgreSQL database to become available on localhost using Docker with host networking.
+    
+    Args:
+        db_port (int): Port number where PostgreSQL is running
+        db_user (str): PostgreSQL user to connect as
+        max_attempts (int): Maximum number of connection attempts
+        delay (int): Delay in seconds between attempts
+    """
+    print(f"Waiting for the database to respond on localhost:{db_port}...")
+    
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--network=host",
+                    "postgres:15-alpine",
+                    "pg_isready",
+                    "-h", "localhost",
+                    "-p", str(db_port),
+                    "-U", db_user
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            print(f"The database is accepting connections on localhost:{db_port}!")
+            break
+        except subprocess.CalledProcessError:
+            attempts += 1
+            if attempts >= max_attempts:
+                raise TimeoutError(f"Database did not become available after {max_attempts} attempts")
+            print(f"Still waiting for the database to accept connections on localhost:{db_port}...")
+            time.sleep(delay)
+            
 def wait_for_url(url, network):
     # Create and start the container
     stop_container("url_test")

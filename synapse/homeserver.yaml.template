@@ -10,7 +10,8 @@ database:
     user: "postgres"
     password: "changeme"
     database: "synapse"
-    host: "synapsedb"
+    host: "localhost"
+    port: 5432
     cp_min: 5
     cp_max: 10
 
@@ -38,11 +39,12 @@ rc_message_burst_count: 10
 enable_registration: false
 registration_requires_token: true
 
+
 # OIDC Settings
 oidc_providers:
   - idp_id: keycloak
     idp_name: "KeyCloak server"
-    issuer: "$KEYCLOAK_HTTPS_INTERNAL_AUTH_URL/realms/opentdf"
+    issuer: "$KEYCLOAK_HOST/auth/realms/opentdf"
     client_id: "synapse"
     client_secret: "$synapse_client_secret"
     scopes: ["openid", "profile"]
@@ -51,7 +53,15 @@ oidc_providers:
         localpart_template: "{{ user.preferred_username }}"
         display_name_template: "{{ user.name }}"
     backchannel_logout_enabled: true # Optional
-
+    discover: true
+    skip_verification: true  # For testing, especially if using self-signed certs
+    request_timeout: 10000   # Increase timeout to 10 seconds
+    verify_certificates: false  # For testing with self-signed certificates
+    proxy:
+      enabled: false  # Disable proxy if you're running locally
+    authorization_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/auth"
+    token_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/token"
+    userinfo_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/userinfo"
 
 # Listeners
 listeners:

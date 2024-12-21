@@ -60,20 +60,12 @@ utils_docker.run_container(env.org)
 
 # --- MATRIX SYNAPSE ---
 utils_docker.run_container(env.synapsedb)
-utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="synapsedb:5432")
+utils_docker.wait_for_db_localhost()
 utils_docker.run_container(env.synapse)
 
 # --- OLLAMA !!! ---
 utils_docker.run_container(env.ollama)
 utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
 
-# --- OPENTDF ---
-utils_docker.run_container(env.opentdfdb)
-utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="opentdfdb:5432")
-utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.BRAND_NAME)
-utils_docker.run_container(env.opentdf)
-
 # --- BLUESKY PDS --- 
-utils_docker.run_container(env.bskydb)
-utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="bskydb:5432")
-utils_docker.run_container(env.bsky)
+utils_docker.run_container(env.bluesky)

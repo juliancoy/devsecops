@@ -233,3 +233,4 @@ nginx/.certbot.lock
 certs/openssl.config
 certs/genProdKeys.sh
 nginx/nginx.conf
+bluesky/pds.env
