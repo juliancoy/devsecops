@@ -1,32 +1,7 @@
-import os
-import requests
-import json
-import copy 
-import util
-
-# Check if the CURRENT_DIR environment variable is set (for Docker container case)
-current_dir = os.getenv("CURRENT_DIR", os.path.abspath(os.path.dirname(__file__)))
-
-print(f"Relative directory : {current_dir}")
-
-keycloak_dir = os.path.join(current_dir, "keycloak")
-opentdf_dir = os.path.join(current_dir, "opentdf")
-nginx_dir = os.path.join(current_dir, "nginx")
-webapp_dir = os.path.join(current_dir, "webapp")
-org_dir = os.path.join(current_dir, "org")
-certs_dir = os.path.join(current_dir, "certs")
-keys_dir = os.path.join(current_dir, "certs", "keys")
-
-# If you are running multiple deployments on the same machine, you can distinguish them here
-distinguisher = ""
-
 # Most common options to change
 BRAND_NAME = "arkavo"
 USER_WEBSITE = "localhost"
 USER_EMAIL = "youremail@example.com"
-PROTOCOL_USER_WEBSITE = "https://localhost"
-TLD = ".us"
-LOCAL_SERVER_mDNS = "localhost"
 SERVICES_TO_RUN = [
     "keycloak",
     "org",
@@ -35,7 +10,53 @@ SERVICES_TO_RUN = [
     "nginx",
     "synapse",
     "ollama",
+    "bluesky",
 ]
+distinguisher = "" # If you are running multiple deployments on the same machine, you can distinguish them here
+KEYCLOAK_PORT = ""  # if applicable
+KEYCLOAK_INTERNAL_URL = "keycloak:8888/keycloak"
+synapse_client_secret = "<your secret here>"
+
+# OAUTH Config
+# Google OAuth Config
+GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
+GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
+GOOGLE_SCOPES = "openid profile email"
+GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+# GitHub OAuth Config
+GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
+GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
+GITHUB_SCOPES = "openid profile email"
+GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
+
+PEM_FILE = "<YOUR SECRET HERE>"
+SERVER_USER = "<YOUR SECRET HERE>"
+SERVER_HOST = "<YOUR SECRET HERE>"
+REMOTE_FOLDER = "<YOUR SECRET HERE>"
+ZIP_FILE = "<YOUR SECRET HERE>"
+LOCAL_DESTINATION = "<YOUR SECRET HERE>"
+EXTRACT_FOLDER = "<YOUR SECRET HERE>"  # Name of the folder after extraction
+
+
+# The remainder of the environment can be generated
+import os
+import requests
+import json
+import copy 
+import util
+
+# Determine the absolute paths of salient directories
+current_dir = os.getenv("CURRENT_DIR", os.path.abspath(os.path.dirname(__file__)))
+keycloak_dir = os.path.join(current_dir, "keycloak")
+opentdf_dir = os.path.join(current_dir, "opentdf")
+nginx_dir = os.path.join(current_dir, "nginx")
+webapp_dir = os.path.join(current_dir, "webapp")
+org_dir = os.path.join(current_dir, "org")
+certs_dir = os.path.join(current_dir, "certs")
+keys_dir = os.path.join(current_dir, "certs", "keys")
 
 # Check to see if we're in an EC2 instance
 ec2_metadata_base_url = "http://169.254.169.254/latest/meta-data/"
@@ -58,25 +79,27 @@ except requests.RequestException as e:
     print("No EC2 Metadata. Assuming local deployment")
     IS_EC2 = False
 
-# -- Locations of Services --
+# -- Locations of Services -- 
 if IS_EC2:
     pass
 else:
-    KEYCLOAK_BASE_URL = "localhost/keycloak"
-    OPENTDF_BASE_URL = "localhost/opentdf"
-    VITE_PUBLIC_URL = "localhost"
+    pass
+
+PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
+KEYCLOAK_BASE_URL = USER_WEBSITE + "/keycloak"
+OPENTDF_BASE_URL = USER_WEBSITE + "/opentdf"
+VITE_PUBLIC_URL = USER_WEBSITE
+
+KEYCLOAK_PROTOCOL = "https"
+KEYCLOAK_HOST = KEYCLOAK_PROTOCOL + "://" + KEYCLOAK_BASE_URL
 
 # Git Branch Port Config
 # BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # Keycloak Config
 KEYCLOAK_REALM = "opentdf"
-KEYCLOAK_PROTOCOL = "https"
-KEYCLOAK_PORT = ""  # if applicable
-KEYCLOAK_INTERNAL_URL = "keycloak:8888/keycloak"
 KEYCLOAK_INTERNAL_CHECK_ADDR = f"http://{KEYCLOAK_INTERNAL_URL}"
 KEYCLOAK_INTERNAL_AUTH_URL = f"http://{KEYCLOAK_INTERNAL_URL}/auth"
-KEYCLOAK_HOST = KEYCLOAK_PROTOCOL + "://" + KEYCLOAK_BASE_URL
 VITE_KEYCLOAK_SERVER_URL = KEYCLOAK_HOST + "/auth"
 
 KEYCLOAK_AUTH_URL = KEYCLOAK_HOST + "/auth"
@@ -95,31 +118,7 @@ VITE_KEYCLOAK_REALM = KEYCLOAK_REALM
 VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
 KEYCLOAK_ADMIN_PASSWORD = "changeme"  # Secrets
 
-# Other ish
-# Google OAuth Config
-GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GOOGLE_SCOPES = "openid profile email"
-GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
-
-# GitHub OAuth Config
-GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
-GITHUB_SCOPES = "openid profile email"
-GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
-
-PEM_FILE = "<YOUR SECRET HERE>"
-SERVER_USER = "<YOUR SECRET HERE>"
-SERVER_HOST = "<YOUR SECRET HERE>"
-REMOTE_FOLDER = "<YOUR SECRET HERE>"
-ZIP_FILE = "<YOUR SECRET HERE>"
-LOCAL_DESTINATION = "<YOUR SECRET HERE>"
-EXTRACT_FOLDER = "<YOUR SECRET HERE>"  # Name of the folder after extraction
-
 # More public options
-COMPOSE_PROJECT_NAME = BRAND_NAME
 NETWORK_NAME = BRAND_NAME + distinguisher
 
 # Admin Config
@@ -253,7 +252,7 @@ keycloak = {
         "KC_DB_URL_HOST": "keycloakdb",
         "KC_DB_URL_PORT": "5432",
         "KC_DB_URL_DATABASE": "keycloak",
-        "KC_DB_USERNAME": "postgres",
+        "KC_DB_USERNAME": "keycloak",
         "KC_DB_PASSWORD": "changeme",
         "KC_HOSTNAME_STRICT": "false",
         "KC_HOSTNAME_STRICT_BACKCHANNEL": "false",
@@ -447,7 +446,7 @@ bluesky = dict(
         "bluesky_pds": {"bind": "/pds", "mode": "rw"},
     },
     environment=dict(
-        PDS_HOSTNAME=PROTOCOL_USER_WEBSITE,
+        PDS_HOSTNAME=USER_WEBSITE,
         PDS_JWT_SECRET=secrets.token_hex(16),
         ADMIN_HANDLE="admin",
         ADMIN_USERNAME='admin',
