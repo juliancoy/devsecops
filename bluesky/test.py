@@ -4,17 +4,12 @@ from typing import Dict, Any
 import datetime
 
 class BlueskyClient:
-    def __init__(self, base_url: str = "http://localhost", ca_cert_path: str = None, verify_ssl: bool = False):
+    def __init__(self, base_url, verify_ssl: bool = True):
         self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
         self.access_jwt = None
         self.refresh_jwt = None
-        
-        # Configure SSL verification
-        if ca_cert_path:
-            self.session.verify = ca_cert_path
-        else:
-            self.session.verify = verify_ssl
+        self.session.verify = verify_ssl
 
     def check_health(self) -> bool:
         """Test the health check endpoint."""
@@ -28,15 +23,11 @@ class BlueskyClient:
             return False
 
     def login(self, identifier: str, password: str) -> bool:
-        """Test authentication and get session tokens."""
         try:
             auth_data = {
                 "identifier": identifier,
                 "password": password
             }
-            print(f"Attempting login with identifier: {identifier}")
-            print(f"Auth endpoint: {self.base_url}/xrpc/com.atproto.server.createSession")
-            
             response = self.session.post(
                 f"{self.base_url}/xrpc/com.atproto.server.createSession",
                 json=auth_data,
@@ -45,14 +36,10 @@ class BlueskyClient:
                     'Accept': 'application/json'
                 }
             )
-            
+            print(f"Request payload: {auth_data}")
             print(f"Response status: {response.status_code}")
             print(f"Response headers: {dict(response.headers)}")
-            
-            try:
-                print(f"Response body: {response.json()}")
-            except:
-                print(f"Raw response: {response.text}")
+            print(f"Response body: {response.text}")
             
             response.raise_for_status()
             data = response.json()
@@ -69,10 +56,10 @@ class BlueskyClient:
             else:
                 print("✗ Authentication failed: No access token received")
                 return False
-                
         except requests.exceptions.RequestException as e:
             print(f"✗ Authentication failed: {str(e)}")
             return False
+
 
     def get_timeline(self) -> Dict[str, Any]:
         """Test retrieving the timeline."""
@@ -127,7 +114,7 @@ class BlueskyClient:
 
 def main():
     # Initialize the tester
-    tester = BlueskyClient("https://localhost", ca_cert_path="../certs/ca.crt")
+    tester = BlueskyClient("https://app.codecollective.us/")
     tester.login("admin", "changeme") 
     
     # Run tests

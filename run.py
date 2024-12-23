@@ -21,14 +21,17 @@ util.substitutions(here, env)
 util.writeViteEnv(vars(env))
 
 if not os.path.isdir(env.keys_dir):
-    os.system("cd certs && ./init-temp-keys.cmd")
+    if env.USER_WEBSITE == "localhost":
+        os.system("cd certs && ./init-temp-keys.cmd")
+    else:
+        utils_docker.generateProdKeys(env)
 
 # Convert env.py to a dictionary
 config = vars(env)
 # make sure the network is up
-utils_docker.ensure_network(env.BRAND_NAME)
+utils_docker.ensure_network(env.NETWORK_NAME)
 
-# create the keys if they dont exist
+# create the keycloak keys if they dont exist
 if not os.path.isdir("certs/keys"):
     os.system("cd certs && ./init-temp-keys.sh")
 
@@ -38,7 +41,7 @@ utils_docker.run_container(env.webapp)
 
 # --- KEYCLOAK ---
 utils_docker.run_container(env.keycloakdb)
-utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432", db_user="keycloak")
+utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432")
 utils_docker.run_container(env.keycloak)
 
 # --- NGINX ---
@@ -61,7 +64,7 @@ utils_docker.run_container(env.org)
 
 # --- MATRIX SYNAPSE ---
 utils_docker.run_container(env.synapsedb)
-utils_docker.wait_for_db_localhost()
+utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="synapsedb:5432")
 utils_docker.run_container(env.synapse)
 
 # --- OLLAMA !!! ---
