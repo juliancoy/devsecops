@@ -235,3 +235,4 @@ certs/genProdKeys.sh
 nginx/nginx.conf
 bluesky/pds.env
 jwt_secret.txt
+alice*

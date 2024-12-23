@@ -10,7 +10,7 @@ database:
     user: "postgres"
     password: "changeme"
     database: "synapse"
-    host: "localhost"
+    host: "synapsedb"
     port: 5432
     cp_min: 5
     cp_max: 10
@@ -59,9 +59,9 @@ oidc_providers:
     verify_certificates: false  # For testing with self-signed certificates
     proxy:
       enabled: false  # Disable proxy if you're running locally
-    authorization_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/auth"
-    token_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/token"
-    userinfo_endpoint: "https://localhost/keycloak/auth/realms/opentdf/protocol/openid-connect/userinfo"
+    authorization_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/auth"
+    token_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/token"
+    userinfo_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/userinfo"
 
 # Listeners
 listeners:

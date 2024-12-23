@@ -4,10 +4,11 @@ import json
 import secrets
 import string
 import requests
+import env
 from typing import Optional
 
 class AccountCreator:
-    def __init__(self, PDS_HOSTNAME = "localhost", PDS_ADMIN_PASSWORD="changeme"):
+    def __init__(self, PDS_HOSTNAME = env.USER_WEBSITE, PDS_ADMIN_PASSWORD="changeme"):
         self.hostname = PDS_HOSTNAME
         self.admin_password = PDS_ADMIN_PASSWORD
         
@@ -16,7 +17,6 @@ class AccountCreator:
         
         # Load CA certificate into requests session
         self.session = requests.Session()
-        self.session.verify = "./certs/ca.crt"
 
     def generate_password(self, length: int = 24) -> str:
         """Generate a secure random password."""
@@ -76,8 +76,10 @@ class AccountCreator:
             "password": password
         }
 
-def main(email = "alice@example.com", handle="alice.local.test"):
+#def main(email = "alice@" + env.USER_WEBSITE, handle="alice." + env.USER_WEBSITE):
+def main(email = "alice@" + env.USER_WEBSITE, handle="alice." + env.USER_WEBSITE):
     creator = AccountCreator()
+    print(f"Creating acount with email {email} and handle {handle}")
     
     # Create the account
     result = creator.create_account(email, handle)
