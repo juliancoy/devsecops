@@ -348,6 +348,7 @@ def generateDevKeys(outdir):
 
 
 def generateProdKeys(env):
+    #certbot certonly --manual --preferred-challenges dns --email julian@codecollective.us --agree-tos --no-eff-email -d codecollective.us -d *.codecollective.us --config-dir ~/certs/config --work-dir ~/certs/work --logs-dir ~/certs/log
     run_container(
         dict(
             image="certbot/certbot",
@@ -366,7 +367,7 @@ def generateProdKeys(env):
                 "-d",
                 f"*.{env.USER_WEBSITE}",
             ],
-            volumes={env.nginx_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
+            volumes={env.certs_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
             detach=False,  # Attach the process to the terminal
             remove=True,  # Automatically remove the container after it exits
             tty=True,  # Allocate a pseudo-TTY

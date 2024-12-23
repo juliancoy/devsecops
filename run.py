@@ -38,21 +38,22 @@ utils_docker.run_container(env.webapp)
 
 # --- KEYCLOAK ---
 utils_docker.run_container(env.keycloakdb)
-utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="keycloakdb:5432")
+utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432", db_user="keycloak")
 utils_docker.run_container(env.keycloak)
 
 # --- NGINX ---
 if not os.path.isfile("certs/ca.crt"):
-    if env.IS_EC2:
-        utils_docker.generateProdKeys(outdir=env.certs_dir, website=env.USER_WEBSITE)
-    else:
+    if env.USER_WEBSITE == "localhost":
         utils_docker.generateDevKeys(outdir=env.certs_dir)
+    else:
+        pass
+        #utils_docker.generateProdKeys(outdir=env.certs_dir, website=env.USER_WEBSITE)
 utils_docker.run_container(env.nginx)
 
 # --- OPENTDF ---
 utils_docker.run_container(env.opentdfdb)
-utils_docker.wait_for_db(network=env.BRAND_NAME, db_url="opentdfdb:5432")
-utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.BRAND_NAME)
+utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="opentdfdb:5432")
+utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.NETWORK_NAME)
 utils_docker.run_container(env.opentdf)
 
 # --- ORG ---
