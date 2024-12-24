@@ -19,7 +19,6 @@ const App: React.FC = () => {
     document.body.classList.toggle('dark-mode', darkMode);
     localStorage.setItem('darkMode', darkMode.toString());
 
-    // Wait for DOM elements and apply styles to '.feed-item'
     const applyDarkModeToFeedItems = () => {
       const feedItems = document.querySelectorAll('.feed-item');
       feedItems.forEach((item) => {
@@ -27,11 +26,9 @@ const App: React.FC = () => {
       });
     };
 
-    // Use MutationObserver to ensure the elements exist and apply styles dynamically
     const observer = new MutationObserver(applyDarkModeToFeedItems);
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial call to apply styles
     applyDarkModeToFeedItems();
 
     return () => observer.disconnect();
@@ -39,7 +36,10 @@ const App: React.FC = () => {
 
   return (
     <ReactKeycloakProvider authClient={keycloak}>
-      <Router>
+      <Router future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}>
         <AppRoutes darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} />
       </Router>
     </ReactKeycloakProvider>

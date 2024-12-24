@@ -5,83 +5,125 @@ import './Feed.css';
 
 import FeedItem from './FeedItem';
 
+interface BlueskyPost {
+    uri: string;
+    cid: string;
+    value: {
+        text: string;
+        createdAt: string;
+    };
+    author: {
+        did: string;
+        handle: string;
+        displayName?: string;
+    };
+}
+
 interface FeedItemData {
     title: string;
     description: string;
-    category: string;
-    date: string;
     author: string;
+    date: string;
     link: string;
-    type: string;
-    likes?: number;
-    replies?: number;
-    comments?: number;
+    cid: string;
+}
+
+interface Repository {
+    did: string;
+    handle: string;
 }
 
 const Feed: React.FC = () => {
     const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
     const [displayedItems, setDisplayedItems] = useState<FeedItemData[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [repoCursor, setRepoCursor] = useState<string | null>(null);
+    const [processedDids, setProcessedDids] = useState<Set<string>>(new Set());
     const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const fetchFeedItems = async () => {
-            try {
-                const [eventsRes, threadsRes] = await Promise.all([
-                    axios.get('/ipsum/events.json'),
-                    axios.get('/ipsum/threads.json')
-                ]);
-
-                const eventsData: FeedItemData[] = eventsRes.data.map((item: FeedItemData) => ({
-                    ...item,
-                    type: 'event'
-                }));
-
-                const threadsData: FeedItemData[] = threadsRes.data.map((item: FeedItemData) => ({
-                    ...item,
-                    type: 'thread'
-                }));
-
-                const combinedData = alternateItems(eventsData, threadsData);
-                setFeedItems(shuffleArray(combinedData));
-                setDisplayedItems(combinedData.slice(0, 10));
-            } catch (error) {
-                console.error("Error fetching feed data:", error);
-            }
-        };
-
-        fetchFeedItems();
-    }, []);
-
-    const alternateItems = (arr1: FeedItemData[], arr2: FeedItemData[]): FeedItemData[] => {
-        const result: FeedItemData[] = [];
-        const maxLength = Math.max(arr1.length, arr2.length);
-
-        for (let i = 0; i < maxLength; i++) {
-            if (i < arr1.length) result.push(arr1[i]);
-            if (i < arr2.length) result.push(arr2[i]);
+    const transformPost = (record: any, repo: Repository): FeedItemData => {
+        try {
+            return {
+                title: record.value.text.slice(0, 50) + (record.value.text.length > 50 ? '...' : ''),
+                description: record.value.text,
+                author: repo.handle || 'unknown',
+                date: new Date(record.value.createdAt).toLocaleString(),
+                link: new URL(`/profile/${repo.did}/post/${record.uri.split('/').pop()}`, import.meta.env.VITE_BLUESKY_HOST).toString(),
+                cid: record.cid
+            };
+        } catch (err) {
+            return null;
         }
-        return result;
     };
 
-    const shuffleArray = (array: FeedItemData[]): FeedItemData[] => {
-        return array
-            .map(item => ({ ...item, sort: Math.random() }))
-            .sort((a, b) => a.sort - b.sort)
-            .map(({ sort, ...item }) => item);
+    const fetchPostsForRepo = async (repo: Repository, cursor?: string) => {
+        try {
+            const url = new URL('/xrpc/com.atproto.repo.listRecords', import.meta.env.VITE_BLUESKY_HOST).toString();
+            const response = await axios.get(url, {
+                params: {
+                    collection: 'app.bsky.feed.post',
+                    repo: repo.did,
+                    limit: 100,
+                    cursor: cursor
+                }
+            });
+
+            if (response.data?.records) {
+                const newPosts = response.data.records
+                    .map((record: any) => transformPost(record, repo))
+                    .filter(Boolean);
+
+                if (newPosts.length > 0) {
+                    setFeedItems(prev => [...prev, ...newPosts]);
+                    setDisplayedItems(prev => [...prev, ...newPosts]);
+                }
+
+                if (response.data.cursor) {
+                    await fetchPostsForRepo(repo, response.data.cursor);
+                }
+            }
+        } catch (error) {
+            console.error(`Error fetching posts for ${repo.did}:`, error);
+        }
     };
 
-    const loadMoreItems = () => {
-        if (loading || displayedItems.length >= feedItems.length) return;
+    const fetchRepos = async () => {
+        if (loading) return;
         setLoading(true);
-        setTimeout(() => {
-            setDisplayedItems(prevItems => [
-                ...prevItems,
-                ...feedItems.slice(prevItems.length, prevItems.length + 10)
-            ]);
+
+        try {
+            const url = new URL('/xrpc/com.atproto.sync.listRepos', import.meta.env.VITE_BLUESKY_HOST).toString();
+            const response = await axios.get(url, {
+                params: {
+                    limit: 50,
+                    cursor: repoCursor
+                }
+            });
+
+            if (response.data?.repos) {
+                for (const repo of response.data.repos) {
+                    if (!processedDids.has(repo.did)) {
+                        setProcessedDids(prev => new Set([...prev, repo.did]));
+                        await fetchPostsForRepo(repo);
+                    }
+                }
+
+                if (response.data.cursor) {
+                    setRepoCursor(response.data.cursor);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching repositories:", error);
+            setError("Failed to fetch repositories");
+        } finally {
             setLoading(false);
-        }, 1000);
+        }
     };
+
+    useEffect(() => {
+        fetchRepos();
+    }, []);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -89,7 +131,7 @@ const Feed: React.FC = () => {
                 containerRef.current &&
                 containerRef.current.scrollTop + containerRef.current.clientHeight >= containerRef.current.scrollHeight - 10
             ) {
-                loadMoreItems();
+                fetchRepos();
             }
         };
 
@@ -97,13 +139,17 @@ const Feed: React.FC = () => {
         currentContainer?.addEventListener("scroll", handleScroll);
 
         return () => currentContainer?.removeEventListener("scroll", handleScroll);
-    }, [feedItems, loading]);
+    }, [loading, repoCursor]);
+
+    if (error) {
+        return <div className="feed-error">{error}</div>;
+    }
 
     return (
         <div className="feed-container-outer" ref={containerRef}>
             <div className="feed-container">
                 {displayedItems.map((item, index) => (
-                    <FeedItem key={index} item={item} />
+                    <FeedItem key={`${item.cid}-${index}`} item={item} />
                 ))}
                 {loading && <p>Loading more items...</p>}
             </div>

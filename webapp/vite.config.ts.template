@@ -8,7 +8,7 @@ export default defineConfig({
     host: '0.0.0.0',
     hmr: false
     /*{
-      host: 'app.codecollective.us', // Use your domain for HMR in production
+      host: '$USER_WEBSITE', // Use your domain for HMR in production
       protocol: 'wss', // Secure WebSocket (works with port 443)
     },*/
   },
