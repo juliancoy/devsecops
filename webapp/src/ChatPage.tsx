@@ -3,7 +3,6 @@ import './ChatPage.css';
 import { Sidebar } from './Sidebar';
 import { Chat } from './Chat';
 import { useKeycloak } from '@react-keycloak/web';
-import { fetchKeycloakUsers } from './orgBackendUtils';
 
 const ChatPage: React.FC = () => {
     const { keycloak, initialized } = useKeycloak();
@@ -16,42 +15,48 @@ const ChatPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [people, setPeople] = useState<User[]>([]);
     const [error, setError] = useState<string | null>(null);
-
+    const fetchMatrixData = async (token: string) => {
+        try {
+            if (!token) throw new Error('Access token is missing');
+            const response = await fetch('https://app.codecollective.us/synapse', {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+    
+            const contentType = response.headers.get('Content-Type');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error fetching data: ${response.statusText} - ${errorText}`);
+            }
+    
+            if (contentType && contentType.includes('application/json')) {
+                const result = await response.json();
+                console.log('Matrix Data:', result);
+            } else {
+                const text = await response.text();
+                console.error('Unexpected response:', text);
+                throw new Error('Received a non-JSON response from the server.');
+            }
+        } catch (err: any) {
+            console.error('Error fetching Matrix data:', err);
+            setError(err?.message || 'An unknown error occurred');
+        } finally {
+            setLoading(false);
+        }
+    };    
+    
     useEffect(() => {
-        const fetchUsers = async (token: string) => {
-            try {
-                if (!token) throw new Error('Access token is missing');
-    
-                const response = await fetchKeycloakUsers(token);
-                if (!response?.users) throw new Error('Invalid response format');
-    
-                const users = response.users;
-    
-                setPeople(users); // Directly set the fetched users
-                setConversations((prevConversations) => {
-                    const newConversations = { ...prevConversations };
-                    users.forEach((user) => {
-                        if (!newConversations[user.id]) {
-                            newConversations[user.id] = [];
-                        }
-                    });
-                    return newConversations;
-                });
-                setLoading(false);
-            } catch (err: any) {
-                console.error('Error fetching users:', err);
-                console.error('Error details:', JSON.stringify(err, null, 2));
-                setError(err?.message || 'An unknown error occurred');
-                setLoading(false);
+        const initialize = async () => {
+            if (initialized) {
+                const token = keycloak.token || '';
+                await fetchMatrixData(token);
             }
         };
-    
-        if (initialized) {
-            const token = keycloak.token || '';
-            fetchUsers(token);
-        }
+
+        initialize();
     }, [initialized, keycloak.token]);
-    
 
     // Handle message submission
     const handleSubmit = async () => {
@@ -65,7 +70,6 @@ const ChatPage: React.FC = () => {
             ],
         }));
 
-        //const context = conversations[selectedPerson].join('\n');
         // Additional logic for API calls can be added here
     };
 
@@ -83,7 +87,7 @@ const ChatPage: React.FC = () => {
 
     const isMobile = window.innerWidth <= 768;
 
-    if (loading) return <div>Loading users...</div>;
+    if (loading) return <div>Loading data...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (

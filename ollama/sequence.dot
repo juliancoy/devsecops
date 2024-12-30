@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant C as Client
+    participant K as Keycloak
+    participant B as Bluesky PDS
+
+    C->>+K: POST /auth/realms/{realm}/protocol/openid-connect/token
+    Note over C,K: Username & password in request body
+    
+    K-->>-C: Return OAuth token
+    Note over K,C: Access token, refresh token, & token type
+    
+    C->>+B: POST /xrpc/com.atproto.server.createSession
+    Note over C,B: OAuth token in Authorization header
+    
+    B-->>+C: Validate OAuth token
+    
+    alt Token Valid
+        C-->>+B: Token validation successful
+        B-->>-C: Return JWT & refresh JWT
+        Note over B,C: Successfully authenticated with PDS
+    else Token Invalid
+        C-->>+B: Token validation failed
+        B-->>-C: Return 401 Unauthorized
+    end

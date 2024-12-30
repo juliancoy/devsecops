@@ -12,6 +12,11 @@ http {
     server {
         listen 443 ssl;
         http2 on;
+
+        # For the federation port
+        listen 8448 ssl http2 default_server;
+        listen [::]:8448 ssl http2 default_server;
+
         server_name $USER_WEBSITE;
 
         ssl_certificate /keys/fullchain.pem;
@@ -68,46 +73,16 @@ http {
             proxy_read_timeout 60s;
             proxy_send_timeout 60s;
         }
+    }
 
-        location /keycloak/ {
-            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+    server {
+        listen 443 ssl;
+        http2 on;
 
-            # Proxy to Keycloak
-            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;
+        server_name bluesky.$USER_WEBSITE;
 
-            # Add headers
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-
-            # Handle upstream redirects to enforce /keycloak/ prefix
-            proxy_redirect http://keycloak:8888/ /keycloak/;
-            proxy_redirect http://keycloak:8888/auth/ /keycloak/auth/;
-
-            # SSL Handling
-            proxy_ssl_server_name on;
-            proxy_ssl_verify off;  # Replace with proper CA trust in production
-
-            # Retry logic and timeouts
-            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
-            proxy_connect_timeout 5s;
-            proxy_read_timeout 60s;
-            proxy_send_timeout 60s;
-        }
-
-        location /matrix/ {
-            set $SYNAPSE_KEYCLOAK_UPSTREAM "synapse";
-            proxy_pass http://$SYNAPSE_KEYCLOAK_UPSTREAM:8008/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            client_max_body_size 50M;
-            
-            # WebSocket support
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-        }
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
 
         # Main PDS location block for xrpc endpoints
         location /xrpc/ {
@@ -124,36 +99,98 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location /bluesky/ {
+        # Add specific location for atproto-did endpoint
+        location /.well-known/atproto-did {
             set $BLUESKY_UPSTREAM "pds";
-            rewrite ^/bluesky(/.*)?$ $1 break;
-
-            # Use port 3000 which is the default PDS port
             proxy_pass http://$BLUESKY_UPSTREAM:3000;
+            proxy_set_header Host $host;
+        }
 
-            # Required for websocket support used by some PDS features
+        location /.well-known/oauth-protected-resource {
+            set $BLUESKY_UPSTREAM "pds";
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;  # Adjust with actual server and port
+            proxy_set_header Host $host;
+        }
+
+        location /.well-known/oauth-authorization-server {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;  # Proxy to your Keycloak server
+            proxy_set_header Host $host;
+        }
+
+        location /oauth/ {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+
+            proxy_pass https://app.codecollective.us/keycloak/;  # Ensure trailing slash
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $server_port;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $MATRIX_SERVER_ADDRESS;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location ~ ^(/_matrix|/_synapse/client) {
+            set $NGINX_SYNAPSE_UPSTREAM "synapse";
+            # note: do not add a path (even a single /) after the port in `proxy_pass`,
+            # otherwise nginx will canonicalise the URI and cause signature verification
+            # errors.
+            proxy_pass http://$NGINX_SYNAPSE_UPSTREAM:8008;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host $host;
+
+            # Nginx by default only allows file uploads up to 1M in size
+            # Increase client_max_body_size to match max_upload_size defined in homeserver.yaml
+            client_max_body_size 50M;
+        
+            # Synapse responses may be chunked, which is an HTTP/1.1 feature.
             proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+        }
+    }
 
-            # Standard proxy headers
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name keycloak.$USER_WEBSITE;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+ 
+        location / {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+
+            # Proxy to Keycloak
+            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;
+
+            # Add headers
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
 
-            # Longer timeouts for PDS operations
-            proxy_connect_timeout 60s;
-            proxy_read_timeout 120s;
+            # SSL Handling
+            proxy_ssl_server_name on;
+            proxy_ssl_verify off;  # Replace with proper CA trust in production
+
+            # Retry logic and timeouts
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
             proxy_send_timeout 60s;
         }
-
-        # Add specific location for atproto-did endpoint
-        location /.well-known/atproto-did {
-            proxy_pass http://$BLUESKY_UPSTREAM:3000;
-            proxy_set_header Host $host;
-        }
-
-
     }
 }

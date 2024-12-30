@@ -13,11 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Lies they told us in school:
-// 1) Don't use global variables
-// 2) OOP makes things easier
-
-// In fact, class-like structure is best implemented like this
 var (
 	keycloakURL string
 	adminRealm  string
@@ -30,21 +25,24 @@ var (
 )
 
 func keycloak_initialize() error {
-
 	// Keycloak configuration
-	keycloakURL := os.Getenv("KEYCLOAK_SERVER_URL")
-	adminRealm := "master"
-	username := os.Getenv("KEYCLOAK_ADMIN")
-	password := os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
-	userRealm := "opentdf"
-	client := gocloak.NewClient(keycloakURL)
+	keycloakURL = os.Getenv("KEYCLOAK_SERVER_URL")
+	adminRealm = "master"
+	username = os.Getenv("KEYCLOAK_ADMIN")
+	password = os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
+	userRealm = "opentdf"
+	client = gocloak.NewClient(keycloakURL)
 	client.RestyClient().SetTLSClientConfig(&tls.Config{InsecureSkipVerify: false})
 
 	fmt.Printf("Connecting to Keycloak at: %v\n", keycloakURL)
 	fmt.Println("Authenticating admin...")
 
 	ctx := context.Background()
+	var err error
 	adminToken, err = client.LoginAdmin(ctx, username, password, adminRealm)
+	if err != nil {
+		return fmt.Errorf("failed to login admin: %w", err)
+	}
 
 	fmt.Println("Successfully authenticated admin!")
 	return nil
@@ -75,39 +73,81 @@ func keycloak_getusers(ctx context.Context) ([]*gocloak.User, error) {
 	return users, nil
 }
 
-func keycloakUserEvent(c *gin.Context) {
-	var event struct {
-		Type string        `json:"type"`
-		User *gocloak.User `json:"user"`
-	}
-	if err := c.ShouldBindJSON(&event); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
-		return
-	}
-
-	if event.Type == "USER_CREATED" && event.User != nil {
-		ctx := context.Background()
-		encryptionKey := []byte(os.Getenv("ENCRYPTION_KEY"))
-
-		if err := bluesky_createaccount(ctx, *event.User.ID, *event.User.Email, blueskyAPI, encryptionKey); err != nil {
-			fmt.Printf("Failed to create Bluesky account for new user: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Bluesky account"})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "Webhook processed"})
-}
-
+// AuthMiddleware authenticates the user and stores their data in the context
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})
+			return
+		}
+
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// Verify token using Keycloak's public key
-		jwt_token, jwt_mapclaims, err := client.DecodeAccessToken(c.Request.Context(), token, "realm-name", "")
+		_, claims, err := client.DecodeAccessToken(c.Request.Context(), token, userRealm)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
 
-		// Proceed with the request
+		// Extract user ID from claims
+		userID, ok := (*claims)["sub"].(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			return
+		}
+
+		// Get user data from Keycloak
+		userData, err := keycloak_getuserdata(c.Request.Context(), userID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to get user data"})
+			return
+		}
+
+		// Store user data and claims in context
+		c.Set("userData", userData)
+		c.Set("user_id", userID)
+		c.Set("claims", claims)
+
 		c.Next()
 	}
+}
+
+// keycloak_getuserdata retrieves a user's data from Keycloak
+func keycloak_getuserdata(ctx context.Context, userID string) (map[string]interface{}, error) {
+	if err := keycloak_refreshtoken(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ensure token validity: %w", err)
+	}
+
+	// Get user from Keycloak
+	user, err := client.GetUserByID(ctx, adminToken.AccessToken, userRealm, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if user.Attributes == nil {
+		return nil, fmt.Errorf("user has no Bluesky credentials")
+	}
+
+	attrs := *user.Attributes
+	handle := attrs["bluesky_handle"]
+	encryptedPassword := attrs["bluesky_password"]
+
+	if len(handle) == 0 || len(encryptedPassword) == 0 {
+		return nil, fmt.Errorf("user has incomplete Bluesky credentials")
+	}
+
+	// Decrypt password
+	password, err := decrypt([]byte(os.Getenv("ENCRYPTION_KEY")), encryptedPassword[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt password: %w", err)
+	}
+
+	// Return user data as a map
+	return map[string]interface{}{
+		"user_id":  userID,
+		"handle":   handle[0],
+		"password": password,
+	}, nil
 }

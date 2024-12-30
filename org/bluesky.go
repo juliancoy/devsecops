@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -15,86 +16,126 @@ import (
 	"github.com/google/uuid"
 )
 
+// Configuration variables
 var (
 	BLUESKY_PDS_URL string
 	ENCRYPTION_KEY  string
 )
 
+// Type definitions
+type BlueskyCredentials struct {
+	Handle      string `json:"handle"`
+	AccessToken string `json:"accessToken"`
+	DID         string `json:"did"`
+}
+
+type BlueskyMessage struct {
+	URI       string    `json:"uri"`
+	Text      string    `json:"text"`
+	Timestamp time.Time `json:"createdAt"`
+	Author    string    `json:"author"`
+}
+
+type Message struct {
+	ID        uuid.UUID `json:"id"`
+	Sender    string    `json:"sender"`
+	Recipient string    `json:"recipient"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type BlueskyAPI struct {
+	client  *http.Client
+	baseURL string
+}
+
+// Initialize Bluesky configuration
 func bluesky_init() {
-	// Bluesky configuration
 	BLUESKY_PDS_URL = os.Getenv("BLUESKY_HOST")
-	// Initialize encryption key
 	ENCRYPTION_KEY = os.Getenv("ENCRYPTION_KEY")
 }
 
-// creates a new Bluesky account and stores the credentials in Keycloak
+// Create a new Bluesky account
 func bluesky_createaccount(ctx context.Context, userID, email string) error {
 	// Generate a random password
 	password := generateRandomPassword()
 
-	// Prepare account creation request
-	data := map[string]string{
-		"email":    email,
-		"password": password,
+	// Create request body
+	body := struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}{
+		Email:    email,
+		Password: password,
 	}
 
-	jsonData, err := json.Marshal(data)
+	// Marshal request body
+	jsonBody, err := json.Marshal(body)
 	if err != nil {
-		return fmt.Errorf("failed to marshal create account data: %w", err)
+		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// Make API request to create Bluesky account
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		BLUESKY_PDS_URL+"/xrpc/com.atproto.server.createAccount", bytes.NewBuffer(jsonData))
+	// Create HTTP request
+	url := BLUESKY_PDS_URL + "/xrpc/com.atproto.server.createAccount"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Add context and headers
+	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := api.client.Do(req)
+	// Send request
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to create account: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check response status
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to create account: status %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response credentials
+	// Parse response
 	var creds BlueskyCredentials
 	if err := json.NewDecoder(resp.Body).Decode(&creds); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Encrypt password for storage
-	encryptedPassword, err := encrypt(encryptionKey, password)
+	// Encrypt password
+	encryptedPassword, err := encrypt([]byte(ENCRYPTION_KEY), password)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt password: %w", err)
 	}
 
-	// Update Keycloak user attributes with Bluesky credentials
+	// Prepare Keycloak attributes
 	attributes := map[string][]string{
 		"bluesky_handle":   {creds.Handle},
 		"bluesky_password": {encryptedPassword},
 	}
 
-	keycloak_updateuser(
-		ctx,
-		api.keycloakMgr.adminToken.AccessToken,
-		api.keycloakMgr.userRealm,
-		gocloak.User{
-			ID:         &userID,
-			Attributes: &attributes,
-		},
-	)
+	// Update Keycloak user attributes
+	if err := keycloak_refreshtoken(ctx); err != nil {
+		return fmt.Errorf("failed to refresh token: %w", err)
+	}
+
+	// Update the user in Keycloak with the new attributes
+	err = client.UpdateUser(ctx, adminToken.AccessToken, userRealm, gocloak.User{
+		ID:         &userID,
+		Attributes: &attributes,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update user attributes: %w", err)
+	}
+
 	return nil
 }
 
-// SendMessage sends a message to another user via Bluesky
+// Send a message to another user via Bluesky
 func bluesky_sendmessage(c *gin.Context) {
-	// Parse request body
 	var req struct {
 		RecipientHandle string `json:"recipient_handle"`
 		Message         string `json:"message"`
@@ -104,17 +145,13 @@ func bluesky_sendmessage(c *gin.Context) {
 		return
 	}
 
-	// Get sender's user ID from authenticated session
-	senderUserID := c.GetString("user_id") // Assuming auth middleware sets this
-
-	// Get sender's Bluesky credentials
-	senderCreds, err := c.GetCredentials(c.Request.Context(), senderUserID)
+	senderUserID := c.GetString("user_id")
+	senderCreds, err := getBlueskyCredentials(c.Request.Context(), senderUserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get sender credentials: %v", err)})
 		return
 	}
 
-	// Create message record
 	msg := Message{
 		ID:        uuid.New(),
 		Sender:    senderUserID,
@@ -123,8 +160,12 @@ func bluesky_sendmessage(c *gin.Context) {
 		Timestamp: time.Now(),
 	}
 
-	// Send message via Bluesky API
-	if err := api.sendBlueskyMessage(c.Request.Context(), senderCreds, req.RecipientHandle, msg.Message); err != nil {
+	blueskyAPI := &BlueskyAPI{
+		client:  http.DefaultClient,
+		baseURL: BLUESKY_PDS_URL,
+	}
+
+	if err := blueskyAPI.SendMessage(c.Request.Context(), senderCreds, req.RecipientHandle, msg.Message); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to send message: %v", err)})
 		return
 	}
@@ -132,31 +173,64 @@ func bluesky_sendmessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "Message sent successfully"})
 }
 
-// GetMessages retrieves messages for a user
-func bluesky_getmessages(ctx context.Context, creds *BlueskyCredentials) ([]BlueskyMessage, error) {
-	userID := c.Query("user")
+// Handler for getting user data
+func keycloak_getuserdataHandler(c *gin.Context) {
+	userID := c.Query("user_id")
 	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User query parameter is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id query parameter is required"})
+		return
+	}
+
+	userData, err := keycloak_getuserdata(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get user data: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, userData)
+}
+
+// Get messages for a user
+func bluesky_getmessagesHandler(c *gin.Context) {
+	// Get user ID from context (set by AuthMiddleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
 	// Get user's Bluesky credentials
-	creds, err := bluesky_getcredentials(context.Background(), userID)
+	userData, err := keycloak_getuserdata(c.Request.Context(), userID.(string))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user credentials"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get user credentials: %v", err)})
 		return
 	}
 
-	// Fetch messages from Bluesky
-	messages, err := blueskyAPI.GetMessages(context.Background(), creds)
+	// Create Bluesky API client
+	api := &BlueskyAPI{
+		client:  http.DefaultClient,
+		baseURL: BLUESKY_PDS_URL,
+	}
+
+	// Convert user data to Bluesky credentials
+	creds := &BlueskyCredentials{
+		Handle:      userData["handle"].(string),
+		AccessToken: userData["access_token"].(string),
+	}
+
+	// Get messages
+	messages, err := api.bluesky_getmessages(c.Request.Context(), creds)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch messages"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get messages: %v", err)})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"messages": messages})
+}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", BLUESKY_PDS_URL+"/xrpc/app.bsky.feed.getTimeline", nil)
+// Get messages for a user from Bluesky
+func (api *BlueskyAPI) bluesky_getmessages(ctx context.Context, creds *BlueskyCredentials) ([]BlueskyMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", api.baseURL+"/xrpc/app.bsky.feed.getTimeline", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -191,43 +265,14 @@ func bluesky_getmessages(ctx context.Context, creds *BlueskyCredentials) ([]Blue
 	return messages, nil
 }
 
-// retrieves a user's Bluesky credentials from Keycloak
-func bluesky_getcredentials(ctx context.Context, userID string) (*BlueskyCredentials, error) {
-	if err := api.keycloakMgr.EnsureTokenValidity(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ensure token validity: %w", err)
-	}
+// Helper function to get Bluesky credentials
+func getBlueskyCredentials(ctx context.Context, userID string) (*BlueskyCredentials, error) {
+	// TODO: Implement credential retrieval from storage
+	return nil, fmt.Errorf("not implemented")
+}
 
-	// Get user from Keycloak
-	user, err := api.keycloakMgr.client.GetUser(
-		ctx,
-		api.keycloakMgr.adminToken.AccessToken,
-		api.keycloakMgr.userRealm,
-		userID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	if user.Attributes == nil {
-		return nil, fmt.Errorf("user has no Bluesky credentials")
-	}
-
-	attrs := *user.Attributes
-	handle := attrs["bluesky_handle"]
-	encryptedPassword := attrs["bluesky_password"]
-
-	if len(handle) == 0 || len(encryptedPassword) == 0 {
-		return nil, fmt.Errorf("user has incomplete Bluesky credentials")
-	}
-
-	// Decrypt password
-	password, err := decrypt([]byte(os.Getenv("ENCRYPTION_KEY")), encryptedPassword[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt password: %w", err)
-	}
-
-	return &BlueskyCredentials{
-		Handle:   handle[0],
-		Password: password,
-	}, nil
+// Helper method to send messages
+func (api *BlueskyAPI) SendMessage(ctx context.Context, creds *BlueskyCredentials, recipient, message string) error {
+	// TODO: Implement message sending via Bluesky API
+	return fmt.Errorf("not implemented")
 }

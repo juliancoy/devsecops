@@ -2,6 +2,7 @@
 server_name: "$BRAND_NAME"
 pid_file: "/data/homeserver.pid"
 web_client_location: $PROTOCOL_USER_WEBSITE
+public_baseurl: "$SYNAPSE_BASE_URL"
 
 # Database configuration
 database:
@@ -46,7 +47,7 @@ oidc_providers:
     idp_name: "KeyCloak server"
     issuer: "$KEYCLOAK_HOST/auth/realms/opentdf"
     client_id: "synapse"
-    client_secret: "$synapse_client_secret"
+    client_secret: "$SYNAPSE_CLIENT_SECRET"
     scopes: ["openid", "profile"]
     user_mapping_provider:
       config:
@@ -82,3 +83,5 @@ report_stats: false
 
 # Set sqlite database location - even though we're using postgres, this needs to be set
 database_path: "/data/homeserver.db"
+
+suppress_key_server_warning: true
