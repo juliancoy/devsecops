@@ -67,6 +67,9 @@ utils_docker.run_container(env.synapsedb)
 utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="synapsedb:5432")
 utils_docker.run_container(env.synapse)
 
+# --- Element web app ---
+utils_docker.run_container(env.element)
+
 # --- OLLAMA !!! ---
 utils_docker.run_container(env.ollama)
 utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])

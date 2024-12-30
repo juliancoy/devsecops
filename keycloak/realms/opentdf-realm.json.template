@@ -1199,7 +1199,7 @@
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
     "secret" : "$SYNAPSE_CLIENT_SECRET",
-    "redirectUris" : [ "$SYNAPSE_BASE_URL/_synapse/client/oidc/callback" ],
+    "redirectUris" : [ "$PROTOCOL_SYNAPSE_BASE_URL/*" ],
     "webOrigins" : [ "$USER_WEBSITE", "$SYNAPSE_BASE_URL" ],
     "notBefore" : 0,
     "bearerOnly" : false,

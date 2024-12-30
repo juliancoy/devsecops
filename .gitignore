@@ -236,3 +236,4 @@ nginx/nginx.conf
 bluesky/pds.env
 jwt_secret.txt
 alice*
+synapse/element-config.json
