@@ -17,7 +17,7 @@ func main() {
 	router := gin.Default()
 
 	// Define a group for routes under the /org base path
-	orgRoutes := router.Group("/org")
+	orgRoutes := router.Group("/")
 	{
 		orgRoutes.GET("/", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{

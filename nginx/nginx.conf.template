@@ -1,7 +1,7 @@
 events {}
 
 http {
-    resolver 127.0.0.11 valid=30s;  # Docker's internal DNS resolver
+    resolver 127.0.0.11 valid=30s;
 
     server {
         listen 80;
@@ -12,10 +12,6 @@ http {
     server {
         listen 443 ssl;
         http2 on;
-
-        # For the federation port
-        listen 8448 ssl http2 default_server;
-        listen [::]:8448 ssl http2 default_server;
 
         server_name $USER_WEBSITE;
 
@@ -34,8 +30,19 @@ http {
             proxy_read_timeout 60s;
             proxy_send_timeout 60s;
         }
+    }
 
-        location /opentdf/ {
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $OPENTDF_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
             set $NGINX_OPENTDF_UPSTREAM "opentdf";
             rewrite ^/opentdf(/.*)?$ $1 break;  
             proxy_pass http://$NGINX_OPENTDF_UPSTREAM:8080;
@@ -60,8 +67,18 @@ http {
             proxy_read_timeout 60s;
             proxy_send_timeout 60s;
         }
+    }
 
-        location /org/ {
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $ORG_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
             set $NGINX_ORG_UPSTREAM "org";
             proxy_pass http://$NGINX_ORG_UPSTREAM:8085;
 
@@ -79,7 +96,7 @@ http {
         listen 443 ssl;
         http2 on;
 
-        server_name bluesky.$USER_WEBSITE;
+        server_name $VITE_BLUESKY_HOST;
 
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;
@@ -121,7 +138,7 @@ http {
         location /oauth/ {
             set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
 
-            proxy_pass https://app.codecollective.us/keycloak/;  # Ensure trailing slash
+            proxy_pass $KEYCLOAK_HOST;  # Ensure trailing slash
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -135,12 +152,16 @@ http {
         listen 443 ssl;
         http2 on;
 
-        server_name $MATRIX_SERVER_ADDRESS;
+        # For the federation port
+        listen 8448 ssl http2 default_server;
+        listen [::]:8448 ssl http2 default_server;
+
+        server_name $SYNAPSE_BASE_URL;
 
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;
 
-        location ~ ^(/_matrix|/_synapse/client) {
+        location / {
             set $NGINX_SYNAPSE_UPSTREAM "synapse";
             # note: do not add a path (even a single /) after the port in `proxy_pass`,
             # otherwise nginx will canonicalise the URI and cause signature verification
@@ -157,6 +178,11 @@ http {
             # Synapse responses may be chunked, which is an HTTP/1.1 feature.
             proxy_http_version 1.1;
         }
+
+        location /.well-known/matrix/server {
+            default_type application/json;
+            return 200 '{"m.server": "matrix.app.codecollective.us"}';
+        }
     }
 
 
@@ -164,7 +190,7 @@ http {
         listen 443 ssl;
         http2 on;
 
-        server_name keycloak.$USER_WEBSITE;
+        server_name $KEYCLOAK_BASE_URL;
 
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;

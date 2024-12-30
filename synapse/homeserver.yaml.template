@@ -1,8 +1,10 @@
 # Server settings
-server_name: "$BRAND_NAME"
+server_name: "$SYNAPSE_BASE_URL"
 pid_file: "/data/homeserver.pid"
 web_client_location: $PROTOCOL_USER_WEBSITE
-public_baseurl: "$SYNAPSE_BASE_URL"
+public_baseurl: "$PROTOCOL_SYNAPSE_BASE_URL"
+bind_addresses: ['0.0.0.0']
+federation_port: 8448
 
 # Database configuration
 database:
@@ -57,7 +59,7 @@ oidc_providers:
     discover: true
     skip_verification: true  # For testing, especially if using self-signed certs
     request_timeout: 10000   # Increase timeout to 10 seconds
-    verify_certificates: false  # For testing with self-signed certificates
+    verify_certificates: true  # For testing with self-signed certificates
     proxy:
       enabled: false  # Disable proxy if you're running locally
     authorization_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/auth"
