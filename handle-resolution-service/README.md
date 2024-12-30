@@ -64,7 +64,7 @@ sam delete --stack-name handle-resolution-service --no-prompts
 ### Production Test
 
 ```shell
-curl https://xrpc.arkavo.net/xrpc/com.atproto.identity.resolveHandle?handle=test.bsky.social
+curl "https://xrpc.arkavo.net/xrpc/com.atproto.identity.resolveHandle?handle=test3.arkavo.net"
 ```
 
 ```shell

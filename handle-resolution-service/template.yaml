@@ -32,6 +32,18 @@ Parameters:
     Default: xrpc
     Description: Subdomain for XRPC endpoint
 
+  EC2InstanceType:
+    Type: String
+    Default: "c4.large"
+    AllowedValues:
+      - "t3.small"
+      - "c4.large"
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: prod-identity
+    Description: Name of an existing EC2 KeyPair for SSH access
+
 Globals:
   Function:
     Runtime: python3.12
@@ -101,8 +113,8 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: !Select [0, !Cidr [!Ref VpcCIDR, 4, 8]]
-      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [ 0, !Cidr [ !Ref VpcCIDR, 4, 8 ] ]
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: !Sub ${Environment}-private-subnet-1
@@ -111,8 +123,8 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: !Select [1, !Cidr [!Ref VpcCIDR, 4, 8]]
-      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [ 1, !Cidr [ !Ref VpcCIDR, 4, 8 ] ]
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: !Sub ${Environment}-private-subnet-2
@@ -230,6 +242,28 @@ Resources:
           KeyType: HASH
       SSESpecification:
         SSEEnabled: true
+  CredentialsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-credentials
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: username-index
+          KeySchema:
+            - AttributeName: username
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
 
   # Lambda Function and API Gateway (using SAM)
   HandleCheckFunction:
@@ -262,7 +296,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref HandleTable
-        - VPCAccessPolicy: {}
+        - VPCAccessPolicy: { }
 
   # Lambda Layer for Dependencies
   DependenciesLayer:
@@ -275,7 +309,163 @@ Resources:
         - python3.12
       RetentionPolicy: Retain
 
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 2, !Cidr [ !Ref VpcCIDR, 4, 8 ] ]
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-public-subnet-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 3, !Cidr [ !Ref VpcCIDR, 4, 8 ] ]
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-public-subnet-2
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # EC2 Security Group
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Rust web server
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 76.100.17.26/32
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIpv6: 2601:147:c400:9cc0:d855:dce:bdd5:caf2/128
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  # EC2 IAM Role
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt HandleTable.Arn
+                  - !GetAtt CredentialsTable.Arn
+                  - !Sub "${CredentialsTable.Arn}/index/*"
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # EC2 Instance
+  Authnz:
+      Type: AWS::EC2::Instance
+      Properties:
+        InstanceType: !Ref EC2InstanceType
+        ImageId: ami-01816d07b1128cd2d
+        SubnetId: !Ref PublicSubnet1
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile: !Ref EC2InstanceProfile
+        Tags:
+          - Key: Name
+            Value: !Sub ${Environment}-authnz
+
   # Route53 Resources
+  RootDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: "Z09772883U0XNWXDMKA2V"
+      Name: !Ref DomainName
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt Authnz.PublicIp
+
 #  XrpcDnsRecord:
 #    Type: AWS::Route53::RecordSet
 #    Properties:
@@ -318,3 +508,11 @@ Outputs:
   DynamoDBEndpointId:
     Description: DynamoDB VPC Endpoint ID
     Value: !Ref DynamoDBEndpoint
+
+  EC2PublicIP:
+    Description: Public IP of EC2 instance
+    Value: !GetAtt Authnz.PublicIp
+
+  EC2PublicDNS:
+    Description: Public DNS of EC2 instance
+    Value: !GetAtt Authnz.PublicDnsName
