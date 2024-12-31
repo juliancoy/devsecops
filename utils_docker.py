@@ -5,7 +5,14 @@ import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List, Type
+
 here = os.path.abspath(os.path.dirname(__file__))
+
+# if colima is installed, point socket to that
+colima_socket_path = f"unix://{os.path.expanduser('~')}/.colima/default/docker.sock"
+if os.path.exists(colima_socket_path):
+    print("Colima socket detected. Attaching to that")
+    os.environ["DOCKER_HOST"] = colima_socket_path
 
 DOCKER_CLIENT = docker.from_env()
 
@@ -154,12 +161,19 @@ def debug_container(config):
     config["restart_policy"] = None  # Ensure no restart policy is set
     config["detach"] = False  # Run the container in daemon mode to get container object
     config["tty"] = True  # Allocate a pseudo-TTY for interactive logs
-    config["remove"] = False   # equivalent to --rm
+    config["remove"] = False  # equivalent to --rm
 
     # Now run it
     print("Starting container with debug configuration...")
     DOCKER_CLIENT.containers.run(**config)
 
+
+def stop_container(container_name):
+    try:
+        container = DOCKER_CLIENT.containers.get(container_name)
+        container.stop()
+    except:
+        print("Couldn't stop container {container_name}. Maybe its not running")
 
 def run_container(config):
     print(f'\033[4;32mRunning container {config["name"]}\033[0m')
@@ -217,20 +231,61 @@ def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
             )
             time.sleep(2)
 
-
+def wait_for_db_localhost(db_port=5432, db_user="postgres", max_attempts=30, delay=2):
+    """
+    Wait for a PostgreSQL database to become available on localhost using Docker with host networking.
+    
+    Args:
+        db_port (int): Port number where PostgreSQL is running
+        db_user (str): PostgreSQL user to connect as
+        max_attempts (int): Maximum number of connection attempts
+        delay (int): Delay in seconds between attempts
+    """
+    print(f"Waiting for the database to respond on localhost:{db_port}...")
+    
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--network=host",
+                    "postgres:15-alpine",
+                    "pg_isready",
+                    "-h", "localhost",
+                    "-p", str(db_port),
+                    "-U", db_user
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            print(f"The database is accepting connections on localhost:{db_port}!")
+            break
+        except subprocess.CalledProcessError:
+            attempts += 1
+            if attempts >= max_attempts:
+                raise TimeoutError(f"Database did not become available after {max_attempts} attempts")
+            print(f"Still waiting for the database to accept connections on localhost:{db_port}...")
+            time.sleep(delay)
+            
 def wait_for_url(url, network):
     # Create and start the container
+    stop_container("url_test")
     run_container(
         dict(
             image="curlimages/curl:latest",  # Use the curl-specific image
             name="url_test",
             network=network,
+            #network_mode="host",  # Set the network mode to host
             environment={"TEST_URL": url},
             command=[
                 "sh",
                 "-c",
                 """
-            while ! curl $TEST_URL; do
+            while ! curl -k $TEST_URL; do
                 echo 'Waiting for Keycloak at' $TEST_URL
                 sleep 2
             done
@@ -241,32 +296,14 @@ def wait_for_url(url, network):
             remove=True,  # Automatically clean up the container after it stops
         )
     )
-    
+
+
 def generateDevKeys(outdir):
     print("Generating Development Keys with SAN for localhost and nginx")
-
-    openssl_config = (
-        "[req]\n"
-        "default_bits = 2048\n"
-        "prompt = no\n"
-        "default_md = sha256\n"
-        "distinguished_name = dn\n"
-        "req_extensions = req_ext\n"
-        "\n"
-        "[dn]\n"
-        "CN = nginx\n"
-        "\n"
-        "[req_ext]\n"
-        "subjectAltName = @alt_names\n"
-        "\n"
-        "[alt_names]\n"
-        "DNS.1 = nginx\n"
-        "DNS.2 = localhost\n"
-        "IP.1 = 127.0.0.1\n"
-    )
-
+    with open(os.path.join("certs", "openssl.config")) as f:
+        openssl_config = f.read()
     command = (
-        "sh -c \""
+        'sh -c "'
         "ls /certs && "
         # Install OpenSSL
         "apk add --no-cache openssl && "
@@ -289,54 +326,108 @@ def generateDevKeys(outdir):
         # Set permissions
         "chmod 644 /certs/privkey.pem /certs/server.crt /certs/fullchain.pem /certs/ca.crt && "
         # Combine it with the standard trust store
-        "cat /certs/ca-certificates.crt /certs/ca.crt /keycloak/keys/keycloak-ca.pem /certs/server.crt > /certs/all-ca-certificates.crt\""
-
+        'cat /certs/ca-certificates.crt /certs/ca.crt /keycloak/keys/keycloak-ca.pem /certs/server.crt > /certs/all-ca-certificates.crt"'
     )
 
     # Run the container to generate the certificate
     try:
         DOCKER_CLIENT.containers.run(
-            image='alpine:latest',
-            name='cert_gen',
+            image="alpine:latest",
+            name="cert_gen",
             command=command,
             volumes={
-                outdir: {
-                    'bind': '/certs/',
-                    'mode': 'rw'
-                },
-                os.path.join(here, "keycloak"): {
-                    'bind': '/keycloak/',
-                    'mode': 'rw'
-                }
+                outdir: {"bind": "/certs/", "mode": "rw"},
+                os.path.join(here, "keycloak"): {"bind": "/keycloak/", "mode": "rw"},
             },
             remove=False,
-            tty=True
+            tty=True,
         )
         print("Certificates generated successfully and stored in:", outdir)
     except Exception as e:
         print(f"Error generating certificates: {e}")
 
 
-def generateProdKeys(outdir, website):
-    DOCKER_CLIENT.containers.run(
-        image='certbot/certbot',
-        command=[
-            'certonly',
-            '--manual',
-            '--preferred-challenges', 'dns',
-            '-d', f"{website}",
-            '-d', f"*.{website}"
-        ],
-        volumes={
-            outdir: {
-                'bind': '/etc/letsencrypt',
-                'mode': 'rw'
-            }
-        },
-        remove=False,
-        tty=True,
-        stdin_open=True
+def generateProdKeys(env):
+    #certbot certonly --manual --preferred-challenges dns --email julian@codecollective.us --agree-tos --no-eff-email -d codecollective.us -d *.codecollective.us --config-dir ~/certs/config --work-dir ~/certs/work --logs-dir ~/certs/log
+    run_container(
+        dict(
+            image="certbot/certbot",
+            name="cert_gen",
+            command=[
+                "certonly",
+                "--manual",
+                "--preferred-challenges",
+                "dns",
+                "--email",
+                env.USER_EMAIL,  # Add email for registration
+                "--agree-tos",  # Automatically agree to terms of service
+                "--no-eff-email",  # Automatically say no to EFF email sharing
+                "-d",
+                env.USER_WEBSITE,
+                "-d",
+                f"*.{env.USER_WEBSITE}",
+            ],
+            volumes={env.certs_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
+            detach=False,  # Attach the process to the terminal
+            remove=True,  # Automatically remove the container after it exits
+            tty=True,  # Allocate a pseudo-TTY
+            stdin_open=True,  # Open stdin for user input
+        )
     )
 
+def model_exists(model_name):
+    try:
+        # Run the curl command
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "-X", "POST",
+                "http://localhost:11434/api/show",
+                "-H", "Content-Type: application/json",
+                "-d", json.dumps({"name": model_name}),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        # Parse the JSON response
+        response = json.loads(result.stdout)
+
+        # Check if the response contains the model's metadata
+        if "license" in response or "modelfile" in response:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error checking model: {e}")
+        return False
+
+# to test a model
+# curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq
+
+def pullModels(models_to_pull):
+    for model_name in models_to_pull:
+        if not model_exists(model_name):
+            print(f"Pulling model: {model_name}")
+            run_container(
+                dict(
+                    image="curlimages/curl",
+                    name="ModelPull",
+                    command=[
+                        "curl",
+                        "-X",
+                        "POST",
+                        "http://localhost:11434/api/pull",
+                        "-d",
+                        json.dumps({"model": model_name}),
+                    ],
+                    network_mode="host",
+                    remove=True,
+                    detach=False,
+                )
+            )
+        else:
+            print(f"Model {model_name} already exists locally")
+
 if __name__ == "__main__":
-    generateDevKeys(os.path.join(here, "nginx"))
+    generateProdKeys()

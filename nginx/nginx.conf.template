@@ -1,0 +1,246 @@
+events {}
+
+http {
+    resolver 127.0.0.11 valid=30s;
+
+    server {
+        listen 80;
+        server_name $USER_WEBSITE;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $USER_WEBSITE;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        # Main application
+        location / {
+            set $frontend_upstream "webapp";
+            proxy_pass http://$frontend_upstream:5173;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $OPENTDF_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_OPENTDF_UPSTREAM "opentdf";
+            rewrite ^/opentdf(/.*)?$ $1 break;  
+            proxy_pass http://$NGINX_OPENTDF_UPSTREAM:8080;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+
+            if ($request_method = OPTIONS) {
+                add_header Access-Control-Allow-Origin *;
+                add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+                add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+                return 204;
+            }
+
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $ORG_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_ORG_UPSTREAM "org";
+            proxy_pass http://$NGINX_ORG_UPSTREAM:8085;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $VITE_BLUESKY_HOST;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        # Main PDS location block for xrpc endpoints
+        location /xrpc/ {
+            set $BLUESKY_UPSTREAM "pds";
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;
+            
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Add specific location for atproto-did endpoint
+        location /.well-known/atproto-did {
+            set $BLUESKY_UPSTREAM "pds";
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;
+            proxy_set_header Host $host;
+        }
+
+        location /.well-known/oauth-protected-resource {
+            set $BLUESKY_UPSTREAM "pds";
+            proxy_pass http://$BLUESKY_UPSTREAM:3000;  # Adjust with actual server and port
+            proxy_set_header Host $host;
+        }
+
+        location /.well-known/oauth-authorization-server {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;  # Proxy to your Keycloak server
+            proxy_set_header Host $host;
+        }
+
+        location /oauth/ {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+
+            proxy_pass $KEYCLOAK_HOST;  # Ensure trailing slash
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $server_port;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        # For the federation port
+        listen 8448 ssl http2 default_server;
+        listen [::]:8448 ssl http2 default_server;
+
+        server_name $SYNAPSE_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_SYNAPSE_UPSTREAM "synapse";
+            # note: do not add a path (even a single /) after the port in `proxy_pass`,
+            # otherwise nginx will canonicalise the URI and cause signature verification
+            # errors.
+            proxy_pass http://$NGINX_SYNAPSE_UPSTREAM:8008;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host $host;
+
+            # Nginx by default only allows file uploads up to 1M in size
+            # Increase client_max_body_size to match max_upload_size defined in homeserver.yaml
+            client_max_body_size 50M;
+        
+            # Synapse responses may be chunked, which is an HTTP/1.1 feature.
+            proxy_http_version 1.1;
+        }
+
+        location /.well-known/matrix/server {
+            default_type application/json;
+            return 200 '{"m.server": "matrix.app.codecollective.us"}';
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $ELEMENT_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_ELEMENT_UPSTREAM "element";
+            proxy_pass http://$NGINX_ELEMENT_UPSTREAM:80;
+            
+            add_header X-Frame-Options SAMEORIGIN;
+            add_header X-Content-Type-Options nosniff;
+            add_header X-XSS-Protection "1; mode=block";
+            add_header Content-Security-Policy "frame-ancestors 'none'";
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $KEYCLOAK_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+ 
+        location / {
+            set $NGINX_KEYCLOAK_UPSTREAM "keycloak";
+
+            # Proxy to Keycloak
+            proxy_pass http://$NGINX_KEYCLOAK_UPSTREAM:8888;
+
+            # Add headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Increase buffer size
+            proxy_buffer_size 16k;
+            proxy_buffers 4 32k;
+            proxy_busy_buffers_size 64k;
+
+            # SSL Handling
+            proxy_ssl_server_name on;
+            proxy_ssl_verify off;  # Replace with proper CA trust in production
+
+            # Retry logic and timeouts
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+}
