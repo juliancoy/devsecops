@@ -9,3 +9,6 @@ certbot certonly \
   --logs-dir "$(pwd)/certbot-logs" \
   -d "$USER_WEBSITE" \
   -d "*.$USER_WEBSITE"
+
+# You have to copy and rename them
+cp /home/julian/Documents/devsecops/certs/certbot-config/archive/app.codecollective.us-0001/*.pem .

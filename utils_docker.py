@@ -231,7 +231,46 @@ def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
             )
             time.sleep(2)
 
-
+def wait_for_db_localhost(db_port=5432, db_user="postgres", max_attempts=30, delay=2):
+    """
+    Wait for a PostgreSQL database to become available on localhost using Docker with host networking.
+    
+    Args:
+        db_port (int): Port number where PostgreSQL is running
+        db_user (str): PostgreSQL user to connect as
+        max_attempts (int): Maximum number of connection attempts
+        delay (int): Delay in seconds between attempts
+    """
+    print(f"Waiting for the database to respond on localhost:{db_port}...")
+    
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--network=host",
+                    "postgres:15-alpine",
+                    "pg_isready",
+                    "-h", "localhost",
+                    "-p", str(db_port),
+                    "-U", db_user
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            print(f"The database is accepting connections on localhost:{db_port}!")
+            break
+        except subprocess.CalledProcessError:
+            attempts += 1
+            if attempts >= max_attempts:
+                raise TimeoutError(f"Database did not become available after {max_attempts} attempts")
+            print(f"Still waiting for the database to accept connections on localhost:{db_port}...")
+            time.sleep(delay)
+            
 def wait_for_url(url, network):
     # Create and start the container
     stop_container("url_test")
@@ -309,6 +348,7 @@ def generateDevKeys(outdir):
 
 
 def generateProdKeys(env):
+    #certbot certonly --manual --preferred-challenges dns --email julian@codecollective.us --agree-tos --no-eff-email -d codecollective.us -d *.codecollective.us --config-dir ~/certs/config --work-dir ~/certs/work --logs-dir ~/certs/log
     run_container(
         dict(
             image="certbot/certbot",
@@ -327,7 +367,7 @@ def generateProdKeys(env):
                 "-d",
                 f"*.{env.USER_WEBSITE}",
             ],
-            volumes={env.nginx_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
+            volumes={env.certs_dir: {"bind": "/etc/letsencrypt", "mode": "rw"}},
             detach=False,  # Attach the process to the terminal
             remove=True,  # Automatically remove the container after it exits
             tty=True,  # Allocate a pseudo-TTY
@@ -335,30 +375,59 @@ def generateProdKeys(env):
         )
     )
 
-
-# Download llama 3.2 if not extant
 def model_exists(model_name):
     try:
-        result = run_container(
-            dict(
-                image="curlimages/curl",
-                name="ModelCheck",
-                command=[
-                    "curl",
-                    "-s",  # silent mode
-                    f"http://localhost:11434/api/show",
-                    "-d",
-                    json.dumps({"name": model_name}),
-                ],
-                network_mode="host",
-                remove=True,
-                detach=False,
-            )
+        # Run the curl command
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "-X", "POST",
+                "http://localhost:11434/api/show",
+                "-H", "Content-Type: application/json",
+                "-d", json.dumps({"name": model_name}),
+            ],
+            capture_output=True,
+            text=True,
         )
-        return True
-    except:  # If the model doesn't exist, the API will return an error
+        # Parse the JSON response
+        response = json.loads(result.stdout)
+
+        # Check if the response contains the model's metadata
+        if "license" in response or "modelfile" in response:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error checking model: {e}")
         return False
 
+# to test a model
+# curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq
+
+def pullModels(models_to_pull):
+    for model_name in models_to_pull:
+        if not model_exists(model_name):
+            print(f"Pulling model: {model_name}")
+            run_container(
+                dict(
+                    image="curlimages/curl",
+                    name="ModelPull",
+                    command=[
+                        "curl",
+                        "-X",
+                        "POST",
+                        "http://localhost:11434/api/pull",
+                        "-d",
+                        json.dumps({"model": model_name}),
+                    ],
+                    network_mode="host",
+                    remove=True,
+                    detach=False,
+                )
+            )
+        else:
+            print(f"Model {model_name} already exists locally")
 
 if __name__ == "__main__":
     generateProdKeys()

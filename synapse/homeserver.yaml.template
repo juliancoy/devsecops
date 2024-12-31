@@ -1,7 +1,10 @@
 # Server settings
-server_name: "$BRAND_NAME"
+server_name: "$SYNAPSE_BASE_URL"
 pid_file: "/data/homeserver.pid"
 web_client_location: $PROTOCOL_USER_WEBSITE
+public_baseurl: "$PROTOCOL_SYNAPSE_BASE_URL"
+bind_addresses: ['0.0.0.0']
+federation_port: 8448
 
 # Database configuration
 database:
@@ -11,6 +14,7 @@ database:
     password: "changeme"
     database: "synapse"
     host: "synapsedb"
+    port: 5432
     cp_min: 5
     cp_max: 10
 
@@ -38,20 +42,29 @@ rc_message_burst_count: 10
 enable_registration: false
 registration_requires_token: true
 
+
 # OIDC Settings
 oidc_providers:
   - idp_id: keycloak
     idp_name: "KeyCloak server"
-    issuer: "$KEYCLOAK_INTERNAL_CHECK_ADDR/realms/opentdf"
+    issuer: "$KEYCLOAK_HOST/auth/realms/opentdf"
     client_id: "synapse"
-    client_secret: "$synapse_client_secret"
+    client_secret: "$SYNAPSE_CLIENT_SECRET"
     scopes: ["openid", "profile"]
     user_mapping_provider:
       config:
         localpart_template: "{{ user.preferred_username }}"
         display_name_template: "{{ user.name }}"
     backchannel_logout_enabled: true # Optional
-
+    discover: true
+    skip_verification: true  # For testing, especially if using self-signed certs
+    request_timeout: 10000   # Increase timeout to 10 seconds
+    verify_certificates: true  # For testing with self-signed certificates
+    proxy:
+      enabled: false  # Disable proxy if you're running locally
+    authorization_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/auth"
+    token_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/token"
+    userinfo_endpoint: "$KEYCLOAK_AUTH_URL/realms/opentdf/protocol/openid-connect/userinfo"
 
 # Listeners
 listeners:
@@ -72,3 +85,5 @@ report_stats: false
 
 # Set sqlite database location - even though we're using postgres, this needs to be set
 database_path: "/data/homeserver.db"
+
+suppress_key_server_warning: true

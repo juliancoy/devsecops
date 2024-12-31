@@ -1,31 +1,9 @@
-import os
-import requests
-import json
-import util
-
-# Check if the CURRENT_DIR environment variable is set (for Docker container case)
-current_dir = os.getenv("CURRENT_DIR", os.path.abspath(os.path.dirname(__file__)))
-
-print(f"Relative directory : {current_dir}")
-
-keycloak_dir = os.path.join(current_dir, "keycloak")
-opentdf_dir = os.path.join(current_dir, "opentdf")
-nginx_dir = os.path.join(current_dir, "nginx")
-webapp_dir = os.path.join(current_dir, "webapp")
-org_dir = os.path.join(current_dir, "org")
-certs_dir = os.path.join(current_dir, "certs")
-keys_dir = os.path.join(current_dir, "certs", "keys")
-
-# If you are running multiple deployments on the same machine, you can distinguish them here
-distinguisher = ""
-
 # Most common options to change
 BRAND_NAME = "arkavo"
 USER_WEBSITE = "localhost"
+PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
 USER_EMAIL = "youremail@example.com"
-PROTOCOL_USER_WEBSITE = "https://localhost"
-TLD = ".us"
-LOCAL_SERVER_mDNS = "localhost"
+KEYCLOAK_ADMIN_PASSWORD = "changeme"
 SERVICES_TO_RUN = [
     "keycloak",
     "org",
@@ -34,7 +12,54 @@ SERVICES_TO_RUN = [
     "nginx",
     "synapse",
     "ollama",
+    "bluesky",
 ]
+distinguisher = "" # If you are running multiple deployments on the same machine, you can distinguish them here
+KEYCLOAK_PORT = ""  # if applicable
+KEYCLOAK_INTERNAL_URL = "keycloak:8888"
+SYNAPSE_CLIENT_SECRET = "changeme"
+
+# OAUTH Config
+# Google OAuth Config
+GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
+GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
+GOOGLE_SCOPES = "openid profile email"
+GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+# GitHub OAuth Config
+GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
+GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
+GITHUB_SCOPES = "openid profile email"
+GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
+
+PEM_FILE = "<YOUR SECRET HERE>"
+SERVER_USER = "<YOUR SECRET HERE>"
+SERVER_HOST = "<YOUR SECRET HERE>"
+REMOTE_FOLDER = "<YOUR SECRET HERE>"
+ZIP_FILE = "<YOUR SECRET HERE>"
+LOCAL_DESTINATION = "<YOUR SECRET HERE>"
+EXTRACT_FOLDER = "<YOUR SECRET HERE>"  # Name of the folder after extraction
+
+
+# The remainder of the environment can be generated
+import os
+import requests
+import json
+import copy 
+import util
+
+# Determine the absolute paths of salient directories
+current_dir = os.getenv("CURRENT_DIR", os.path.abspath(os.path.dirname(__file__)))
+keycloak_dir = os.path.join(current_dir, "keycloak")
+opentdf_dir = os.path.join(current_dir, "opentdf")
+nginx_dir = os.path.join(current_dir, "nginx")
+webapp_dir = os.path.join(current_dir, "webapp")
+org_dir = os.path.join(current_dir, "org")
+certs_dir = os.path.join(current_dir, "certs")
+keys_dir = os.path.join(current_dir, "certs", "keys")
+synapse_dir = os.path.join(current_dir, "synapse")
 
 # Check to see if we're in an EC2 instance
 ec2_metadata_base_url = "http://169.254.169.254/latest/meta-data/"
@@ -52,30 +77,36 @@ try:
 
     print(json.dumps(metadata))
     IS_EC2 = True
+    print("Detected EC2 Runtime")
 
 except requests.RequestException as e:
     print("No EC2 Metadata. Assuming local deployment")
     IS_EC2 = False
 
-# -- Locations of Services --
-if IS_EC2:
-    pass
-else:
-    KEYCLOAK_BASE_URL = "localhost/keycloak"
-    OPENTDF_BASE_URL = "localhost/opentdf"
-    VITE_PUBLIC_URL = "localhost"
+# Keycloak Addresses
+KEYCLOAK_BASE_URL = "keycloak." + USER_WEBSITE
+KEYCLOAK_HOST = "https://" + KEYCLOAK_BASE_URL
+
+OPENTDF_BASE_URL = "opentdf." + USER_WEBSITE
+ORG_BASE_URL     = "org."     + USER_WEBSITE
+SYNAPSE_BASE_URL = "matrix."  + USER_WEBSITE
+BLUESKY_BASE_URL = "bluesky." + USER_WEBSITE
+ELEMENT_BASE_URL = "element." + USER_WEBSITE
+
+PROTOCOL_OPENTDF_BASE_URL = "https://" + OPENTDF_BASE_URL
+PROTOCOL_ORG_BASE_URL     = "https://" + ORG_BASE_URL
+PROTOCOL_SYNAPSE_BASE_URL = "https://" + SYNAPSE_BASE_URL
+
+VITE_BLUESKY_HOST = "https://" + BLUESKY_BASE_URL
+VITE_PUBLIC_URL = USER_WEBSITE
 
 # Git Branch Port Config
 # BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # Keycloak Config
 KEYCLOAK_REALM = "opentdf"
-KEYCLOAK_PROTOCOL = "https"
-KEYCLOAK_PORT = ""  # if applicable
-KEYCLOAK_INTERNAL_URL = "keycloak:8888/keycloak/"
 KEYCLOAK_INTERNAL_CHECK_ADDR = f"http://{KEYCLOAK_INTERNAL_URL}"
 KEYCLOAK_INTERNAL_AUTH_URL = f"http://{KEYCLOAK_INTERNAL_URL}/auth"
-KEYCLOAK_HOST = KEYCLOAK_PROTOCOL + "://" + KEYCLOAK_BASE_URL
 VITE_KEYCLOAK_SERVER_URL = KEYCLOAK_HOST + "/auth"
 
 KEYCLOAK_AUTH_URL = KEYCLOAK_HOST + "/auth"
@@ -92,33 +123,8 @@ KEYCLOAK_SERVER_URL_INTERNAL = "https://keycloak:8443/auth"
 VITE_KEYCLOAK_CLIENT_ID = "web-client"
 VITE_KEYCLOAK_REALM = KEYCLOAK_REALM
 VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
-KEYCLOAK_ADMIN_PASSWORD = "changeme"  # Secrets
-
-# Other ish
-# Google OAuth Config
-GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GOOGLE_SCOPES = "openid profile email"
-GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
-
-# GitHub OAuth Config
-GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
-GITHUB_SCOPES = "openid profile email"
-GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
-
-PEM_FILE = "<YOUR SECRET HERE>"
-SERVER_USER = "<YOUR SECRET HERE>"
-SERVER_HOST = "<YOUR SECRET HERE>"
-REMOTE_FOLDER = "<YOUR SECRET HERE>"
-ZIP_FILE = "<YOUR SECRET HERE>"
-LOCAL_DESTINATION = "<YOUR SECRET HERE>"
-EXTRACT_FOLDER = "<YOUR SECRET HERE>"  # Name of the folder after extraction
 
 # More public options
-COMPOSE_PROJECT_NAME = BRAND_NAME
 NETWORK_NAME = BRAND_NAME + distinguisher
 
 # Admin Config
@@ -150,7 +156,8 @@ opentdfdb = dict(
         "POSTGRES_DB": "opentdf",
     },
     volumes={
-        "OPENTDF_POSTGRES" + distinguisher: {
+        "OPENTDF_POSTGRES"
+        + distinguisher: {
             "bind": "/var/lib/postgresql/data",
             "mode": "rw",
         }
@@ -170,7 +177,6 @@ opentdf = dict(
     name="opentdf",
     network=NETWORK_NAME,
     restart_policy={"Name": "always"},
-    ports={"8080/tcp": 8080},
     environment={
         "KEYCLOAK_BASE_URL": KEYCLOAK_INTERNAL_AUTH_URL,
     },
@@ -202,18 +208,17 @@ opentdf = dict(
 
 
 # Keycloak config
-keycloakdb = opentdfdb.copy()
+keycloakdb = copy.deepcopy(opentdfdb)
 keycloakdb["name"] = "keycloakdb"
+keycloakdb["environment"]["POSTGRES_DB"] = "keycloak"
 keycloakdb["volumes"] = {
-        "KEYCLOAK_POSTGRES" + distinguisher: {
-            "bind": "/var/lib/postgresql/data",
-            "mode": "rw"
-        }
-    }
+    "KEYCLOAK_POSTGRES"
+    + distinguisher: {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+}
 
 keycloak = {
     "name": "keycloak",
-    "network": BRAND_NAME,
+    "network": NETWORK_NAME,
     "image": "cgr.dev/chainguard/keycloak@sha256:37895558d2e0e93ffff75da5900f9ae7e79ec6d1c390b18b2ecea6cee45ec26f",
     "entrypoint": "/opt/keycloak/keycloak-startup.sh",
     "detach": True,
@@ -247,12 +252,12 @@ keycloak = {
     "environment": {
         "KC_PROXY": "edge",
         "PROXY_ADDRESS_FORWARDING": "true",
-        "KC_HTTP_RELATIVE_PATH": "/keycloak/auth",
+        "KC_HTTP_RELATIVE_PATH": "/auth",
         "KC_DB_VENDOR": "postgres",
         "KC_DB_URL_HOST": "keycloakdb",
         "KC_DB_URL_PORT": "5432",
         "KC_DB_URL_DATABASE": "keycloak",
-        "KC_DB_USERNAME": "postgres",
+        "KC_DB_USERNAME": "keycloak",
         "KC_DB_PASSWORD": "changeme",
         "KC_HOSTNAME_STRICT": "false",
         "KC_HOSTNAME_STRICT_BACKCHANNEL": "false",
@@ -279,7 +284,7 @@ nginx = dict(
     image="nginx:latest",
     name="nginx",
     detach=True,  # equivalent to -d
-    network=NETWORK_NAME,  
+    network=NETWORK_NAME,
     restart_policy={"Name": "always"},
     volumes={
         os.path.join(nginx_dir, "nginx.conf"): {
@@ -297,6 +302,8 @@ nginx = dict(
     ports={
         "80/tcp": 80,  # equivalent to -p 80:80
         "443/tcp": 443,  # equivalent to -p 443:443
+        "8443/tcp": 8443,  
+        "8448/tcp": 8448,  
     },
 )
 
@@ -308,7 +315,6 @@ webapp = dict(
     restart_policy={"Name": "always"},
     volumes={webapp_dir: {"bind": "/usr/src/app", "mode": "rw"}},
     working_dir="/usr/src/app",
-    ports={"5173": "3001"},
     environment={
         "NODE_ENV": "development",
         "VITE_KEYCLOAK_SERVER_URL": VITE_KEYCLOAK_SERVER_URL,
@@ -330,7 +336,6 @@ org = dict(
     name=f"org",
     network=NETWORK_NAME,
     restart_policy={"Name": "always"},
-    ports={"8085": "8085"},
     volumes={
         org_dir: {"bind": "/usr/src/app", "mode": "rw"},
         go_installs_dir: {
@@ -347,6 +352,8 @@ org = dict(
         "KEYCLOAK_ADMIN": KEYCLOAK_ADMIN,
         "KEYCLOAK_ADMIN_PASSWORD": KEYCLOAK_ADMIN_PASSWORD,
         "KEYCLOAK_SERVER_URL": KEYCLOAK_INTERNAL_AUTH_URL,
+        "BLUESKY_PDS_URL": VITE_BLUESKY_HOST,
+        "ENCRYPTION_KEY": "temporary-key-please-change"
     },
     command=["sh", "-c", "go build && ./main"],
 )
@@ -360,7 +367,6 @@ synapse = dict(
     volumes={
         os.path.join(current_dir, "synapse"): {"bind": "/data", "mode": "rw"},
     },
-    ports={"8008/tcp": 8008},
     healthcheck={
         "test": ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"],
         "interval": 5000000000,  # 5s
@@ -369,15 +375,14 @@ synapse = dict(
     },
 )
 
-synapsedb = opentdfdb.copy()
+synapsedb = copy.deepcopy(opentdfdb)
 synapsedb["name"] = "synapsedb"
-#synapsedb["environment"]["POSTGRES_DB"] = "synapse"
+synapsedb["environment"]["POSTGRES_DB"] = "synapse"
+synapsedb["environment"]["POSTGRES_INITDB_ARGS"] = "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
 synapsedb["volumes"] = {
-        "SYNAPSE_POSTGRES" + distinguisher: {
-            "bind": "/var/lib/postgresql/data",
-            "mode": "rw"
-        }
-    }
+    "SYNAPSE_POSTGRES"
+    + distinguisher: {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+}
 
 
 # Base configuration
@@ -403,21 +408,75 @@ ollama = {
     "image": "ollama/ollama",
 }
 
+from docker.types import DeviceRequest
+
 # Check for NVIDIA GPU
 if util.check_nvidia_gpu():
-    ollama["deploy"] = {
-        "resources": {
-            "reservations": {
-                "devices": [{"driver": "nvidia", "count": 1, "capabilities": ["gpu"]}]
-            }
-        }
-    }
+    ollama["device_requests"] = [
+        DeviceRequest(count=1, capabilities=[["gpu"]], driver="nvidia")
+    ]
+
 # Check for AMD GPU
 elif util.check_amd_gpu():
-    ollama["deploy"] = {
-        "resources": {
-            "reservations": {
-                "devices": [{"driver": "amd", "count": 1, "capabilities": ["gpu"]}]
-            }
-        }
-    }
+    ollama["device_requests"] = [
+        DeviceRequest(count=1, capabilities=[["gpu"]], driver="amd")
+    ]
+
+# BLUESKY CRYPTO SETUP
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
+import secrets
+
+# Generate a secp256k1 private key
+private_key = ec.generate_private_key(ec.SECP256K1())
+private_key_bytes = private_key.private_numbers().private_value.to_bytes(
+    32, byteorder="big"
+)
+
+if os.path.exists("jwt_secret.txt"):
+    with open("jwt_secret.txt", 'r') as file:
+        JWT_SECRET  = file.read()
+else:
+    JWT_SECRET = secrets.token_hex(16)
+    with open("jwt_secret.txt", 'w+') as file:
+        file.write(JWT_SECRET)
+
+element = dict(
+    image="vectorim/element-web:latest",
+    name="element",
+    detach=True,  # Runs the container in detached mode
+    restart_policy={"Name": "unless-stopped"},
+    volumes={
+        f"{synapse_dir}/element-config.json": {"bind": "/app/config.json", "mode": "rw"},
+    },
+    network=NETWORK_NAME
+)
+
+bluesky = dict(
+    image="ghcr.io/bluesky-social/pds:latest",
+    detach=True,
+    name="pds",
+    network=NETWORK_NAME,  # Make sure it's on the same network as nginx
+    volumes={
+        "bluesky_pds": {"bind": "/pds", "mode": "rw"},
+    },
+    environment=dict(
+        DEBUG=1,
+        PDS_HOSTNAME=USER_WEBSITE,
+        PDS_JWT_SECRET=JWT_SECRET,
+        ADMIN_HANDLE="admin",
+        ADMIN_USERNAME='admin',
+        PDS_ADMIN_PASSWORD="changeme",
+        PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=private_key_bytes.hex(),
+        PDS_DATA_DIRECTORY="/pds",
+        PDS_BLOBSTORE_DISK_LOCATION="/pds/blocks",
+        PDS_BLOB_UPLOAD_LIMIT=52428800,
+        PDS_DID_PLC_URL="https://plc.directory",
+        PDS_BSKY_APP_VIEW_URL="https://api.bsky.app",
+        PDS_BSKY_APP_VIEW_DID="did:web:api.bsky.app",
+        PDS_REPORT_SERVICE_URL="https://mod.bsky.app",
+        PDS_REPORT_SERVICE_DID="did:plc:ar7c4by46qjdydhdevvrndac",
+        PDS_CRAWLERS="https://bsky.network",
+        LOG_ENABLED='true',
+    ),
+)

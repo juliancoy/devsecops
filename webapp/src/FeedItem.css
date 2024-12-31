@@ -1,0 +1,115 @@
+/* Default feed item styling */
+.feed-item {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+/* Category-based colors */
+.feed-item.dark-mode {
+    background-color: #ffffff;
+}
+
+.feed-item.dark-mode {
+    background-color: #000000;
+}
+
+/* Hover effect */
+.feed-item:hover {
+    background-color: #f8f8f8; /* Slightly darker background on hover */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Slightly more prominent shadow */
+    transform: translateY(-2px); /* Subtle lift effect */
+}
+
+/* Header styling */
+.feed-item-header {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+    color: #818384;
+    margin-bottom: 8px;
+}
+
+.feed-item-header img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.feed-item-header .author {
+    font-weight: bold;
+    color: #1a0dab;
+    margin-right: 4px;
+}
+
+.feed-item-header .separator {
+    margin: 0 4px;
+}
+
+/* Title styling */
+.feed-item-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #34495e;
+    margin-bottom: 10px;
+}
+
+/* Description */
+.feed-item-description {
+    font-size: 0.95em;
+    color: #6a737c;
+    margin-bottom: 12px;
+}
+
+/* Action bar */
+.feed-item-actions {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+    color: #818384;
+    align-items: center;
+}
+
+.feed-item-actions .action {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.feed-item-actions .action svg {
+    width: 18px;
+    height: 18px;
+    margin-right: 5px;
+    fill: #818384;
+    transition: fill 0.2s;
+}
+
+.feed-item-actions .action:hover svg {
+    fill: #1a0dab;
+}
+
+.feed-item-actions .action span {
+    color: #818384;
+    transition: color 0.2s;
+}
+
+.feed-item-actions .action:hover span {
+    color: #1a0dab;
+}
+
+/* Link styling */
+.feed-item a {
+    color: #3498db;
+    font-weight: bold;
+    text-decoration: none;
+    margin-top: 10px;
+    display: inline-block;
+}
+
+.feed-item a:hover {
+    text-decoration: underline;
+}

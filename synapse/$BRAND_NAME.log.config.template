@@ -23,7 +23,7 @@ handlers:
         when: midnight
         backupCount: 3  # Does not include the current log file.
         encoding: utf8
-c
+
     # Default to buffering writes to log file for efficiency.
     # WARNING/ERROR logs will still be flushed immediately, but there will be a
     # delay (of up to `period` seconds, or until the buffer is full with
