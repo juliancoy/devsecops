@@ -37,42 +37,54 @@ if not os.path.isdir("certs/keys"):
 
 # --- WEB APP ---
 # theoretically has no dependencies
-utils_docker.run_container(env.webapp)
+if "webapp" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.webapp)
 
 # --- KEYCLOAK ---
-utils_docker.run_container(env.keycloakdb)
-utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432")
-utils_docker.run_container(env.keycloak)
+if "keycloak" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.keycloakdb)
+    utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432")
+    utils_docker.run_container(env.keycloak)
 
 # --- NGINX ---
-if not os.path.isfile("certs/ca.crt"):
-    if env.USER_WEBSITE == "localhost":
-        utils_docker.generateDevKeys(outdir=env.certs_dir)
-    else:
-        pass
-        #utils_docker.generateProdKeys(outdir=env.certs_dir, website=env.USER_WEBSITE)
-utils_docker.run_container(env.nginx)
+if "nginx" in env.SERVICES_TO_RUN:
+    if not os.path.isfile("certs/ca.crt"):
+        if env.USER_WEBSITE == "localhost":
+            utils_docker.generateDevKeys(outdir=env.certs_dir)
+        else:
+            pass
+            #utils_docker.generateProdKeys(outdir=env.certs_dir, website=env.USER_WEBSITE)
+    utils_docker.run_container(env.nginx)
 
 # --- OPENTDF ---
-utils_docker.run_container(env.opentdfdb)
-utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="opentdfdb:5432")
-utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.NETWORK_NAME)
-utils_docker.run_container(env.opentdf)
+if "opentdf" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.opentdfdb)
+    utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="opentdfdb:5432")
+    utils_docker.wait_for_url(env.KEYCLOAK_INTERNAL_AUTH_URL, network=env.NETWORK_NAME)
+    utils_docker.run_container(env.opentdf)
 
 # --- ORG ---
-utils_docker.run_container(env.org)
+if "org" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.org)
 
 # --- MATRIX SYNAPSE ---
-utils_docker.run_container(env.synapsedb)
-utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="synapsedb:5432")
-utils_docker.run_container(env.synapse)
+if "synapse" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.synapsedb)
+    utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="synapsedb:5432")
+    utils_docker.run_container(env.synapse)
+if "element" in env.SERVICES_TO_RUN:
+    # --- Element web app ---
+    utils_docker.run_container(env.element)
 
-# --- Element web app ---
-utils_docker.run_container(env.element)
+# --- Discourse ---
+if "discourse" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.discourse)
 
 # --- OLLAMA !!! ---
-utils_docker.run_container(env.ollama)
-utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
+if "ollama" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.ollama)
+    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
 
 # --- BLUESKY PDS --- 
-utils_docker.run_container(env.bluesky)
+if "bluesky" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.bluesky)
