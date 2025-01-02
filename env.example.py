@@ -1,5 +1,6 @@
 # Most common options to change
 BRAND_NAME = "arkavo"
+BRAND_COLOR = "#002a61"
 USER_WEBSITE = "localhost"
 PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
 USER_EMAIL = "youremail@example.com"
@@ -11,9 +12,11 @@ SERVICES_TO_RUN = [
     "AICouncil",
     "nginx",
     "synapse",
-    "ollama",
+    #"ollama",
     "bluesky",
+    "webapp"
 ]
+
 distinguisher = "" # If you are running multiple deployments on the same machine, you can distinguish them here
 KEYCLOAK_PORT = ""  # if applicable
 KEYCLOAK_INTERNAL_URL = "keycloak:8888"
