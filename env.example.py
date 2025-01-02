@@ -1,6 +1,7 @@
 # Most common options to change
 BRAND_NAME = "arkavo"
-BRAND_COLOR = "#002a61"
+BRAND_COLOR_DARK = "#002a61"
+BRAND_COLOR_LIGHT = "#a0d6ff"
 USER_WEBSITE = "localhost"
 PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
 USER_EMAIL = "youremail@example.com"
