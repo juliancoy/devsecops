@@ -15,10 +15,29 @@ const ChatPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [people, setPeople] = useState<User[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const fetchMatrixData = async (token: string) => {
+    const joined_rooms_url = `${import.meta.env.VITE_SYNAPSE_BASE_URL}/_matrix/client/r0/joined_rooms`
+
+    const refreshAccessToken = async () => {
+        if (!keycloak.refreshToken) {
+            throw new Error('Refresh token is missing.');
+        }
+    
+        await keycloak.updateToken(30); // Refresh the token if it's about to expire in 30 seconds
+        return keycloak.token;
+    };
+    
+    const fetchMatrixData = async () => {
         try {
-            if (!token) throw new Error('Access token is missing');
-            const response = await fetch('https://app.codecollective.us/synapse', {
+
+            let token = keycloak.token || '';
+            
+            // Refresh token if necessary
+            token = await refreshAccessToken();
+            console.log(token);
+            
+            console.log(joined_rooms_url);
+
+            const response = await fetch(joined_rooms_url, {
                 method: 'GET',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -50,8 +69,8 @@ const ChatPage: React.FC = () => {
     useEffect(() => {
         const initialize = async () => {
             if (initialized) {
-                const token = keycloak.token || '';
-                await fetchMatrixData(token);
+                
+                await fetchMatrixData();
             }
         };
 
