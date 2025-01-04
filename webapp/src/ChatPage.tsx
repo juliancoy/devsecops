@@ -5,6 +5,34 @@ import { Chat } from './Chat';
 import { useKeycloak } from '@react-keycloak/web';
 
 const ChatPage: React.FC = () => {
+    const people = [
+        {
+            id: '1',
+            firstName: 'Julian',
+            lastName: 'Loiacono',
+            attributes: {
+                picture: ['https://example.com/profile1.jpg'],
+            },
+        },
+        {
+            id: '2',
+            firstName: 'Alex',
+            lastName: 'Smith',
+            attributes: {
+                picture: ['https://example.com/profile2.jpg'],
+            },
+        },
+        {
+            id: '3',
+            firstName: 'Taylor',
+            lastName: 'Doe',
+            attributes: {
+                picture: ['https://example.com/profile3.jpg'],
+            },
+        },
+    ];
+    
+
     const { keycloak, initialized } = useKeycloak();
     const [prompt, setPrompt] = useState('');
     const [selectedPerson, setSelectedPerson] = useState('Llama');
@@ -13,7 +41,6 @@ const ChatPage: React.FC = () => {
     });
     const [showChat, setShowChat] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [people, setPeople] = useState<User[]>([]);
     const [error, setError] = useState<string | null>(null);
     const joined_rooms_url = `${import.meta.env.VITE_SYNAPSE_BASE_URL}/_matrix/client/r0/joined_rooms`
 
@@ -32,7 +59,7 @@ const ChatPage: React.FC = () => {
             let token = keycloak.token || '';
             
             // Refresh token if necessary
-            token = await refreshAccessToken();
+            token = (await refreshAccessToken()) || token;
             console.log(token);
             
             console.log(joined_rooms_url);
@@ -116,7 +143,7 @@ const ChatPage: React.FC = () => {
                     people={people}
                     selectedPerson={selectedPerson}
                     onPersonSelect={handlePersonSelect}
-                    className={`sidebar ${!isMobile || !showChat ? 'active' : ''}`}
+                    //className={`sidebar ${!isMobile || !showChat ? 'active' : ''}`}
                 />
             )}
             {(isMobile && showChat) && (
@@ -140,7 +167,7 @@ const ChatPage: React.FC = () => {
                     handleSubmit={handleSubmit}
                     handleKeyDown={handleKeyDown}
                     conversations={conversations[selectedPerson]}
-                    className="chat-window"
+                    //className="chat-window"
                 />
             )}
         </div>

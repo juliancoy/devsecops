@@ -45,6 +45,8 @@ if "keycloak" in env.SERVICES_TO_RUN:
 # theoretically has no dependencies
 if "webapp" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.webapp)
+if "webapp_build" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.webapp_build)
 
 # --- NGINX ---
 if "nginx" in env.SERVICES_TO_RUN:

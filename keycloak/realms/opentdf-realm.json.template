@@ -1264,18 +1264,7 @@
         "claim.name" : "clientHost",
         "jsonType.label" : "String"
       }
-    }, {
-      "name": "Additional Audiences",
-      "protocol": "openid-connect",
-      "protocolMapper": "oidc-audience-mapper",
-      "consentRequired": false,
-      "config": {
-          "included.client.audience": "synapse",
-          "id.token.claim": "true",
-          "access.token.claim": "true"
-      }
-  }
- ],
+    } ],
     "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "email" ],
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
