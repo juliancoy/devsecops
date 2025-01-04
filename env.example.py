@@ -135,6 +135,7 @@ VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
 
 # More public options
 NETWORK_NAME = BRAND_NAME + distinguisher
+VITE_BRAND_NAME = BRAND_NAME
 
 # Admin Config
 ADMIN_CLIENT = "admin-cli"
