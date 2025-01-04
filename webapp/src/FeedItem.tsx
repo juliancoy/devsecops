@@ -18,24 +18,24 @@ const FeedItem: React.FC<{ item: any }> = ({ item }) => {
                     <span className="display-name">{display_name}</span>
                     <span className="author-handle">@{handle}</span>
                     <span className="separator">•</span>
-                    <span>{new Date(created_at).toLocaleString()}</span>
+                    <span className="timestamp">{new Date(created_at).toLocaleString()}</span>
                 </div>
             </div>
             <div className="feed-item-content">
-                <p>{text}</p>
+                <p className="content-text">{text}</p>
                 {image && <img className="content-image" src={image} alt="Post content" />}
             </div>
             <div className="feed-item-actions">
                 <div className="action">
-                    <span>👍</span>
+                    <span role="img" aria-label="Like">👍</span>
                     <span>{likeCount}</span>
                 </div>
                 <div className="action">
-                    <span>💬</span>
+                    <span role="img" aria-label="Comment">💬</span>
                     <span>{replyCount}</span>
                 </div>
                 <div className="action">
-                    <span>🔄</span>
+                    <span role="img" aria-label="Repost">🔄</span>
                     <span>{repostCount}</span>
                 </div>
             </div>

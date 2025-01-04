@@ -13,6 +13,7 @@ SERVICES_TO_RUN = [
     "AICouncil",
     "nginx",
     "synapse",
+    "element",
     #"ollama",
     "bluesky",
     "webapp"
@@ -62,8 +63,10 @@ nginx_dir = os.path.join(current_dir, "nginx")
 webapp_dir = os.path.join(current_dir, "webapp")
 org_dir = os.path.join(current_dir, "org")
 certs_dir = os.path.join(current_dir, "certs")
+discourse_dir = os.path.join(current_dir, "discourse")
 keys_dir = os.path.join(current_dir, "certs", "keys")
 synapse_dir = os.path.join(current_dir, "synapse")
+bsky_bridge_dir = os.path.join(current_dir, "bsky_bridge")
 
 # Check to see if we're in an EC2 instance
 ec2_metadata_base_url = "http://169.254.169.254/latest/meta-data/"
@@ -96,10 +99,12 @@ ORG_BASE_URL     = "org."     + USER_WEBSITE
 SYNAPSE_BASE_URL = "matrix."  + USER_WEBSITE
 BLUESKY_BASE_URL = "bluesky." + USER_WEBSITE
 ELEMENT_BASE_URL = "element." + USER_WEBSITE
+BSKY_BRIDGE_BASE_URL = "bsky_bridge." + USER_WEBSITE
 
 PROTOCOL_OPENTDF_BASE_URL = "https://" + OPENTDF_BASE_URL
 PROTOCOL_ORG_BASE_URL     = "https://" + ORG_BASE_URL
 PROTOCOL_SYNAPSE_BASE_URL = "https://" + SYNAPSE_BASE_URL
+VITE_SYNAPSE_BASE_URL = PROTOCOL_SYNAPSE_BASE_URL
 
 VITE_BLUESKY_HOST = "https://" + BLUESKY_BASE_URL
 VITE_PUBLIC_URL = USER_WEBSITE
@@ -274,7 +279,7 @@ keycloak = {
         "KEYCLOAK_FRONTEND_URL": KEYCLOAK_AUTH_URL,
         "KC_HOSTNAME_URL": KEYCLOAK_AUTH_URL,
         "KC_FEATURES": "preview,token-exchange",
-        # "KC_LOG_LEVEL":"DEBUG",
+        "KC_LOG_LEVEL":"INFO",
         "KC_HEALTH_ENABLED": "true",
         "KC_HTTPS_KEY_STORE_PASSWORD": "password",
         "KC_HTTPS_KEY_STORE_FILE": "/truststore/truststore.jks",
@@ -454,6 +459,37 @@ element = dict(
         f"{synapse_dir}/element-config.json": {"bind": "/app/config.json", "mode": "rw"},
     },
     network=NETWORK_NAME
+)
+
+discourse = dict(
+    image="discourse/discourse:latest",  # Official Discourse image
+    name="discourse",
+    detach=True,  # Runs the container in detached mode
+    restart_policy={"Name": "unless-stopped"},  # Ensures the container restarts unless manually stopped
+    volumes={
+        f"{discourse_dir}/data": {"bind": "/var/www/discourse/data", "mode": "rw"},  # Data volume
+        f"{discourse_dir}/config/app.yml": {"bind": "/var/www/discourse/config/app.yml", "mode": "rw"},  # Config volume
+    },
+    network=NETWORK_NAME  # Ensure it joins the correct network
+)
+
+BLUESKY_HANDLE = "your_handle"
+BLUESKY_PASSWORD = 'your_password'
+
+bluesky_bridge = dict(
+    image="python:3.11-slim",
+    detach=True,
+    name="bsky_bridge",
+    working_dir="/app",
+    network=NETWORK_NAME,
+    volumes={
+        bsky_bridge_dir: {"bind": "/app", "mode": "rw"},
+    },
+    environment=dict(
+        BLUESKY_HANDLE=BLUESKY_HANDLE,
+        BLUESKY_PASSWORD=BLUESKY_PASSWORD,
+    ),
+    command=["sh", "-c", "pip install atproto flask && python serve_feed.py"],
 )
 
 bluesky = dict(
