@@ -28,7 +28,7 @@ log_config: "/data/$BRAND_NAME.log.config"
 
 # Federation settings
 federation_domain_whitelist: []
-allow_public_rooms_without_auth: false
+allow_public_rooms_without_auth: true
 allow_public_rooms_over_federation: false
 
 # Room settings
@@ -57,7 +57,7 @@ oidc_providers:
         display_name_template: "{{ user.name }}"
     backchannel_logout_enabled: true # Optional
     discover: true
-    skip_verification: true  # For testing, especially if using self-signed certs
+    skip_verification: false  # For testing, especially if using self-signed certs
     request_timeout: 10000   # Increase timeout to 10 seconds
     verify_certificates: true  # For testing with self-signed certificates
     proxy:

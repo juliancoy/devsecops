@@ -34,6 +34,12 @@ def substitutions(currdir, env):
             with open(newFile, 'w+') as f:
                 f.write(templateText)
 
+        if currdir.endswith(".copy"):
+            newFile = currdir.replace(".copy","")
+            if not os.path.exists(newFile):
+                print(f"Copying {currdir} to {newFile}")
+                shutil.copy(currdir, newFile)
+
 def initializeFiles():
     # Check if we are in a GitHub Actions environment
     in_github_actions = os.getenv("GITHUB_ACTIONS") == "true"

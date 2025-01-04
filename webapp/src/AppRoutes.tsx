@@ -14,6 +14,7 @@ import AICompute from './AICompute';
 import Events from './Events';
 import TDF from './TDF';
 import './App.css';
+import Bluesky from './Bluesky';
 
 const AppRoutes: React.FC = () => {
     return (

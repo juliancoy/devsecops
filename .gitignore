@@ -244,3 +244,4 @@ jwt_secret.txt
 alice*
 synapse/element-config.json
 
+webapp/src/global.css
