@@ -405,7 +405,7 @@ def model_exists(model_name):
 # to test a model
 # curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq
 
-def pullModels(models_to_pull):
+def pullModels(models_to_pull, network):
     for model_name in models_to_pull:
         if not model_exists(model_name):
             print(f"Pulling model: {model_name}")
@@ -417,11 +417,11 @@ def pullModels(models_to_pull):
                         "curl",
                         "-X",
                         "POST",
-                        "http://localhost:11434/api/pull",
+                        "http://ollama:11434/api/pull",
                         "-d",
                         json.dumps({"model": model_name}),
                     ],
-                    network_mode="host",
+                    network=network,
                     remove=True,
                     detach=False,
                 )

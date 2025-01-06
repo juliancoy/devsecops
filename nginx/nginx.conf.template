@@ -1,5 +1,20 @@
 events {}
 
+stream {
+    resolver 127.0.0.11 valid=30s;
+    server {
+        listen 6667 ssl;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        set $NGINX_IRC_UPSTREAM "irc";
+        proxy_pass $NGINX_IRC_UPSTREAM:6667;
+
+        server_name $IRC_BASE_URL;
+    }
+}
+
 http {
     resolver 127.0.0.11 valid=30s;
 
@@ -18,7 +33,6 @@ http {
         
         # Add specific MIME type for JavaScript modules
         types {
-            application/javascript mjs;
             application/javascript js;
         }
 
@@ -157,6 +171,30 @@ http {
             proxy_send_timeout 60s;
         }
     }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $OLLAMA_BASE_URL;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_OLLAMA_UPSTREAM "ollama";
+            proxy_pass http://$NGINX_OLLAMA_UPSTREAM:11434;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+
 
     server {
         listen 443 ssl;
