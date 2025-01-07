@@ -45,6 +45,8 @@ if "keycloak" in env.SERVICES_TO_RUN:
 # theoretically has no dependencies
 if "webapp" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.webapp)
+if "webapp_build" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.webapp_build)
 
 # --- NGINX ---
 if "nginx" in env.SERVICES_TO_RUN:
@@ -83,9 +85,12 @@ if "discourse" in env.SERVICES_TO_RUN:
 # --- OLLAMA !!! ---
 if "ollama" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.ollama)
-    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
+    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"],env.NETWORK_NAME)
 
 # --- BLUESKY PDS --- 
 if "bluesky" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.bluesky)
     utils_docker.run_container(env.bluesky_bridge)
+
+if "irc" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.irc)
