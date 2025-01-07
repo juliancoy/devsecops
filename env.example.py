@@ -1,7 +1,8 @@
 # Most common options to change
 BRAND_NAME = "arkavo"
-BRAND_COLOR_DARK = "#002a61"
-BRAND_COLOR_LIGHT = "#a0d6ff"
+VITE_BRAND_NAME = "arkavo"
+BRAND_COLOR_DARK = "#f99742"
+BRAND_COLOR_LIGHT = "#F4A460"
 USER_WEBSITE = "localhost"
 PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
 USER_EMAIL = "youremail@example.com"
@@ -16,7 +17,9 @@ SERVICES_TO_RUN = [
     "element",
     #"ollama",
     "bluesky",
-    "webapp"
+    "webapp",
+    "webapp_build",
+    "irc"
 ]
 
 distinguisher = "" # If you are running multiple deployments on the same machine, you can distinguish them here
@@ -55,6 +58,10 @@ import json
 import copy 
 import util
 
+# Get the current user's UID and GID
+uid = os.getuid()
+gid = os.getgid()
+
 # Determine the absolute paths of salient directories
 current_dir = os.getenv("CURRENT_DIR", os.path.abspath(os.path.dirname(__file__)))
 keycloak_dir = os.path.join(current_dir, "keycloak")
@@ -64,9 +71,11 @@ webapp_dir = os.path.join(current_dir, "webapp")
 org_dir = os.path.join(current_dir, "org")
 certs_dir = os.path.join(current_dir, "certs")
 discourse_dir = os.path.join(current_dir, "discourse")
-keys_dir = os.path.join(current_dir, "certs", "keys")
+keys_dir = os.path.join(certs_dir, "keys")
 synapse_dir = os.path.join(current_dir, "synapse")
 bsky_bridge_dir = os.path.join(current_dir, "bsky_bridge")
+irc_dir = os.path.join(current_dir, "irc")
+gitea_dir = os.path.join(current_dir, "gitea_dir")
 
 # Check to see if we're in an EC2 instance
 ec2_metadata_base_url = "http://169.254.169.254/latest/meta-data/"
@@ -95,11 +104,14 @@ KEYCLOAK_BASE_URL = "keycloak." + USER_WEBSITE
 KEYCLOAK_HOST = "https://" + KEYCLOAK_BASE_URL
 
 OPENTDF_BASE_URL = "opentdf." + USER_WEBSITE
-ORG_BASE_URL     = "org."     + USER_WEBSITE
-SYNAPSE_BASE_URL = "matrix."  + USER_WEBSITE
+OLLAMA_BASE_URL  = "ollama." + USER_WEBSITE
+ORG_BASE_URL     = "org." + USER_WEBSITE
+SYNAPSE_BASE_URL = "matrix." + USER_WEBSITE
 BLUESKY_BASE_URL = "bluesky." + USER_WEBSITE
 ELEMENT_BASE_URL = "element." + USER_WEBSITE
 BSKY_BRIDGE_BASE_URL = "bsky_bridge." + USER_WEBSITE
+WEBAPP_DEV_BASE_URL = "dev." + USER_WEBSITE
+IRC_BASE_URL = "irc." + USER_WEBSITE
 
 PROTOCOL_OPENTDF_BASE_URL = "https://" + OPENTDF_BASE_URL
 PROTOCOL_ORG_BASE_URL     = "https://" + ORG_BASE_URL
@@ -135,7 +147,6 @@ VITE_KAS_ENDPOINT = f"https://{OPENTDF_BASE_URL}/kas"
 
 # More public options
 NETWORK_NAME = BRAND_NAME + distinguisher
-VITE_BRAND_NAME = BRAND_NAME
 
 # Admin Config
 ADMIN_CLIENT = "admin-cli"
@@ -301,6 +312,10 @@ nginx = dict(
             "bind": "/etc/nginx/nginx.conf",
             "mode": "rw",
         },
+        os.path.join(webapp_dir, "dist"): {
+            "bind": "/app",
+            "mode": "rw",
+        },
         os.path.join(certs_dir, "ssl"): {"bind": "/etc/nginx/ssl", "mode": "rw"},
         os.path.join(certs_dir, "html"): {
             "bind": "/usr/share/nginx/html",
@@ -312,9 +327,33 @@ nginx = dict(
     ports={
         "80/tcp": 80,  # equivalent to -p 80:80
         "443/tcp": 443,  # equivalent to -p 443:443
-        "8443/tcp": 8443,  
-        "8448/tcp": 8448,  
+        "6667/tcp": 6667,
+        "8443/tcp": 8443,
+        "8448/tcp": 8448,
     },
+)
+
+webapp_build = dict(
+    image="node:22",
+    detach=True,  # Runs the container in detached mode
+    name=f"webapp_build",
+    network=NETWORK_NAME,
+    restart_policy={"Name": "no"},
+    volumes={
+        webapp_dir: {"bind": "/usr/src/app", "mode": "rw"},
+        #"dist_volume": {"bind": "/usr/src/app/dist", "mode": "rw"},
+    },
+    working_dir="/usr/src/app",
+    environment={
+        "NODE_ENV": "development",
+        "VITE_KEYCLOAK_SERVER_URL": VITE_KEYCLOAK_SERVER_URL,
+        "VITE_KEYCLOAK_REALM": VITE_KEYCLOAK_REALM,
+        "VITE_KEYCLOAK_CLIENT_ID": VITE_KEYCLOAK_CLIENT_ID,
+        "VITE_ORG_BACKEND_URL": VITE_ORG_BACKEND_URL,
+        "VITE_KAS_ENDPOINT": VITE_KAS_ENDPOINT,
+    },
+    command="sh -c 'npm install && npm run build  --verbose'",
+    user=f"{uid}:{gid}",
 )
 
 webapp = dict(
@@ -322,8 +361,11 @@ webapp = dict(
     detach=True,  # Runs the container in detached mode
     name=f"webapp",
     network=NETWORK_NAME,
-    restart_policy={"Name": "always"},
-    volumes={webapp_dir: {"bind": "/usr/src/app", "mode": "rw"}},
+    restart_policy={"Name": "no"},
+    volumes={
+        webapp_dir: {"bind": "/usr/src/app", "mode": "rw"},
+        #"dist_volume": {"bind": "/usr/src/app/dist", "mode": "rw"},
+    },
     working_dir="/usr/src/app",
     environment={
         "NODE_ENV": "development",
@@ -334,6 +376,7 @@ webapp = dict(
         "VITE_KAS_ENDPOINT": VITE_KAS_ENDPOINT,
     },
     command="sh -c 'npm install && npm run dev'",
+    user=f"{uid}:{gid}",
 )
 
 go_installs_dir = os.path.join(
@@ -363,7 +406,7 @@ org = dict(
         "KEYCLOAK_ADMIN_PASSWORD": KEYCLOAK_ADMIN_PASSWORD,
         "KEYCLOAK_SERVER_URL": KEYCLOAK_INTERNAL_AUTH_URL,
         "BLUESKY_PDS_URL": VITE_BLUESKY_HOST,
-        "ENCRYPTION_KEY": "temporary-key-please-change"
+        "ENCRYPTION_KEY": "temporary-key-please-change",
     },
     command=["sh", "-c", "go build && ./main"],
 )
@@ -388,7 +431,9 @@ synapse = dict(
 synapsedb = copy.deepcopy(opentdfdb)
 synapsedb["name"] = "synapsedb"
 synapsedb["environment"]["POSTGRES_DB"] = "synapse"
-synapsedb["environment"]["POSTGRES_INITDB_ARGS"] = "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+synapsedb["environment"][
+    "POSTGRES_INITDB_ARGS"
+] = "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
 synapsedb["volumes"] = {
     "SYNAPSE_POSTGRES"
     + distinguisher: {"bind": "/var/lib/postgresql/data", "mode": "rw"}
@@ -398,6 +443,7 @@ synapsedb["volumes"] = {
 # Base configuration
 ollama = {
     "name": "ollama",
+    "network": NETWORK_NAME,
     "detach": True,  # Runs the container in detached mode
     "volumes": {
         os.path.join(current_dir, "ollama", "ollama_models"): {
@@ -409,7 +455,6 @@ ollama = {
             "mode": "rw",
         },
     },
-    "ports": {"11434/tcp": 11434},
     "environment": {
         "OLLAMA_ORIGINS": "*",
         "ENABLE_OLLAMA_API": "True",
@@ -457,21 +502,32 @@ element = dict(
     detach=True,  # Runs the container in detached mode
     restart_policy={"Name": "unless-stopped"},
     volumes={
-        f"{synapse_dir}/element-config.json": {"bind": "/app/config.json", "mode": "rw"},
+        f"{synapse_dir}/element-config.json": {
+            "bind": "/app/config.json",
+            "mode": "rw",
+        },
     },
-    network=NETWORK_NAME
+    network=NETWORK_NAME,
 )
 
 discourse = dict(
     image="discourse/discourse:latest",  # Official Discourse image
     name="discourse",
     detach=True,  # Runs the container in detached mode
-    restart_policy={"Name": "unless-stopped"},  # Ensures the container restarts unless manually stopped
+    restart_policy={
+        "Name": "unless-stopped"
+    },  # Ensures the container restarts unless manually stopped
     volumes={
-        f"{discourse_dir}/data": {"bind": "/var/www/discourse/data", "mode": "rw"},  # Data volume
-        f"{discourse_dir}/config/app.yml": {"bind": "/var/www/discourse/config/app.yml", "mode": "rw"},  # Config volume
+        f"{discourse_dir}/data": {
+            "bind": "/var/www/discourse/data",
+            "mode": "rw",
+        },  # Data volume
+        f"{discourse_dir}/config/app.yml": {
+            "bind": "/var/www/discourse/config/app.yml",
+            "mode": "rw",
+        },  # Config volume
     },
-    network=NETWORK_NAME  # Ensure it joins the correct network
+    network=NETWORK_NAME,  # Ensure it joins the correct network
 )
 
 BLUESKY_HANDLE = "your_handle"
@@ -506,7 +562,7 @@ bluesky = dict(
         PDS_HOSTNAME=USER_WEBSITE,
         PDS_JWT_SECRET=JWT_SECRET,
         ADMIN_HANDLE="admin",
-        ADMIN_USERNAME='admin',
+        ADMIN_USERNAME="admin",
         PDS_ADMIN_PASSWORD="changeme",
         PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=private_key_bytes.hex(),
         PDS_DATA_DIRECTORY="/pds",
@@ -518,6 +574,58 @@ bluesky = dict(
         PDS_REPORT_SERVICE_URL="https://mod.bsky.app",
         PDS_REPORT_SERVICE_DID="did:plc:ar7c4by46qjdydhdevvrndac",
         PDS_CRAWLERS="https://bsky.network",
-        LOG_ENABLED='true',
+        LOG_ENABLED="true",
     ),
 )
+
+irc = dict(
+    image= "lscr.io/linuxserver/ngircd:latest",
+    name= "irc",
+    detach=True,
+    network=NETWORK_NAME,
+    environment=dict(
+      PUID=1000,
+      PGID=1000,
+      TZ="Etc/UTC"
+    ),    
+    volumes={
+        os.path.join(irc_dir,"config"): {"bind": "/config", "mode": "rw"},
+        os.path.join(irc_dir,"config","ngitcd.motd"): {"bind": "/etc/ngircd/ngircd.motd", "mode": "rw"},
+    },
+    restart_policy={
+        "Name": "unless-stopped"
+    },
+)
+
+
+gitea =  dict(
+        image= "gitea/gitea:latest",
+        environment= {
+            "USER_UID": "1000",
+            "USER_GID": "1000",
+            "ACTIONS_ENABLED": "true"
+        },
+        volumes={
+            gitea_dir: {"bind": "/data", "mode": "rw"},
+        },
+        restart_policy={
+            "Name": "unless-stopped"
+        },
+    )
+
+
+act_runner = {
+    "image": "gitea/act_runner:latest",
+    "restart": "always",
+    "depends_on": [
+        "gitea"
+    ],
+    "volumes": [
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "./act_runner:/data"
+    ],
+    "environment": {
+        "GITEA_INSTANCE_URL": "http://gitea:3000",
+        "RUNNER_LABELS": "ubuntu-latest:docker://node:16-bullseye"
+    }
+}
