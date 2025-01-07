@@ -375,32 +375,43 @@ def generateProdKeys(env):
         )
     )
 
-def model_exists(model_name):
-    try:
-        # Run the curl command
-        result = subprocess.run(
-            [
+
+def model_exists(model_name, network):
+    # Run the container and capture the result
+    result = run_container(
+        dict(
+            image="curlimages/curl",
+            name="ModelPull",
+            command=[
                 "curl",
                 "-s",
                 "-X", "POST",
-                "http://localhost:11434/api/show",
+                "http://ollama:11434/api/show",
                 "-H", "Content-Type: application/json",
                 "-d", json.dumps({"name": model_name}),
             ],
-            capture_output=True,
-            text=True,
+            network=network,
+            remove=True,
+            detach=False,
         )
-        # Parse the JSON response
-        response = json.loads(result.stdout)
-
-        # Check if the response contains the model's metadata
-        if "license" in response or "modelfile" in response:
-            return True
-        else:
-            return False
-    except Exception as e:
-        print(f"Error checking model: {e}")
+    )
+    
+    # Assuming `result` is an object with a `stdout` attribute containing the output
+    response_json = result.stdout
+    
+    # Parse the JSON response
+    try:
+        response = json.loads(response_json)
+    except json.JSONDecodeError:
+        # Handle the case where the response is not valid JSON
         return False
+    
+    # Check if the response contains the model's metadata
+    if "license" in response or "modelfile" in response:
+        return True
+    else:
+        return False
+    
 
 # to test a model
 # curl http://localhost:11434/api/chat -d '{"model": "llama3.2", "messages": [{"role": "user", "content": "How are you?"}]}' | jq

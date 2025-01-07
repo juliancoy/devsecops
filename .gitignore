@@ -245,3 +245,4 @@ alice*
 synapse/element-config.json
 
 webapp/src/global.css
+webapp/src/wtf.json

@@ -3,6 +3,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './Navbar';
 import Feed from './Feed';
+import VideoFeed from './VideoFeed';
 //import SignIn from './SignIn';
 import Privacy from './Privacy';
 import Profile from './Profile';
@@ -35,6 +36,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => 
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/navbar" element={<Navbar />} />
+                <Route path="/video" element={<VideoFeed />} />
                 <Route path="/tdf" element={<TDF />} />
                 {/*<Route path="/video" element={<VideoRoom />} />
                 <Route path="/settings" element={<Settings />} />

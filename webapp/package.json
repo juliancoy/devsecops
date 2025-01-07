@@ -12,6 +12,7 @@
     "axios": "^1.7.7",
     "bootbox": "^6.0.0",
     "bootstrap": "^5.3.3",
+    "hls.js": "^1.5.18",
     "jquery": "^3.7.1",
     "keycloak-js": "^26.0.7",
     "oidc-client": "^1.11.5",
