@@ -7,7 +7,7 @@ const MatrixAuthForward: React.FC = () => {
     const navigate = useNavigate();
 
     const initiateSSOLogin = async () => {
-        const redirectUrl = `${window.location.origin}/chat`;
+        const redirectUrl = `${window.location.origin}/chatauth`;
         window.location.href = `${synapseBaseUrl}/_matrix/client/r0/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`;
     };
 
@@ -46,6 +46,12 @@ const MatrixAuthForward: React.FC = () => {
 
         handleLogin();
     }, [navigate]);
+
+    return (
+        <div>
+            {error ? <p>Error: {error}</p> : <p>Redirecting...</p>}
+        </div>
+    );
 };
 
 export default MatrixAuthForward;

@@ -200,46 +200,17 @@ const ChatPage: React.FC = () => {
 
     useEffect(() => {
         const initialize = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const loginToken = urlParams.get('loginToken');
             const storedAccessToken = localStorage.getItem('matrixAccessToken');
-
-            try {
-                if (loginToken) {
-                    // Exchange login token for access token and fetch rooms
-                    const token = await fetch(`${synapseBaseUrl}/_matrix/client/r0/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            type: 'm.login.token',
-                            token: loginToken,
-                        }),
-                    })
-                        .then((res) => {
-                            if (!res.ok) throw new Error('Failed to exchange login token');
-                            return res.json();
-                        })
-                        .then((data) => data.access_token);
-
-                    accessTokenRef.current = token;
-                    localStorage.setItem('matrixAccessToken', token);
-                    await fetchPeople(token);
-                    await fetchRooms(token);
-                } else if (storedAccessToken) {
-                    // Use stored token to fetch rooms
-                    accessTokenRef.current = storedAccessToken;
-                    await fetchPeople(storedAccessToken);
-                    await fetchRooms(storedAccessToken);
-                } else {
-                    // No token found, redirect to auth
-                    navigate('/chatauth');
-                }
-                setLoading(false);
-            } catch (err) {
-                console.error('Initialize error:', err);
-                setError(err instanceof Error ? err.message : 'Unknown error occurred');
-                setLoading(false);
+            if (storedAccessToken) {
+                // Use stored token to fetch rooms
+                accessTokenRef.current = storedAccessToken;
+                await fetchPeople(storedAccessToken);
+                await fetchRooms(storedAccessToken);
+            } else {
+                // No token found, redirect to auth
+                navigate('/chatauth');
             }
+            setLoading(false);
         };
 
         initialize();
