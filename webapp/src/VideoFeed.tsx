@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import axios from 'axios';
-import './VideoFeed.css';
+import './css/VideoFeed.css';
+import { faL } from '@fortawesome/free-solid-svg-icons';
 
-const VideoFeedItem: React.FC<{ post: any; isActive: boolean }> = ({ post, isActive }) => {
+var soundOn = false;
+
+const VideoFeedItem: React.FC<{ post: any; isActive: boolean}> = ({ post, isActive }) => {
     const { avatar, display_name, handle } = post.author;
     const { text, created_at } = post.record;
     const playlistUrl = post.embed?.playlist;
@@ -50,6 +53,7 @@ const VideoFeedItem: React.FC<{ post: any; isActive: boolean }> = ({ post, isAct
                 video.play().catch((error) => {
                     console.error("Video play error:", error);
                 });
+                video.muted = !soundOn
             } else {
                 video.pause();
             }
@@ -132,10 +136,21 @@ const VideoFeed: React.FC = () => {
         return () => container.removeEventListener('scroll', handleScroll);
     }, [currentIndex]);
 
+    const handleVideoClick = () => {
+        const container = containerRef.current;
+        if (!container) return;
+        // change mute state
+        soundOn = !soundOn;
+
+        const videos = Array.from(container.querySelectorAll('video'));
+        videos[currentIndex].muted = !soundOn;
+    };
+
     return (
-        <div className="feed-container-outer" ref={containerRef}>
+        <div className="feed-container-outer" ref={containerRef} onClick={handleVideoClick}>
             {feedItems.map((item, index) => (
-                <VideoFeedItem key={index} post={item.post} isActive={index === currentIndex} />
+                <VideoFeedItem key={index} post={item.post} isActive={index === currentIndex} // Pass soundOn state
+                />
             ))}
         </div>
     );

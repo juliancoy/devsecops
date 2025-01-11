@@ -1,7 +1,7 @@
 // src/Events.tsx
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import './Events.css';
+import './css/Events.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import FullCalendar from '@fullcalendar/react';

@@ -172,6 +172,45 @@ http {
         }
     }
 
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        server_name $INITIATIVE_BASE_URL;
+        client_max_body_size 1G;
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        location / {
+            set $NGINX_INITIATIVE_UPSTREAM "initiative";
+            proxy_pass http://$NGINX_INITIATIVE_UPSTREAM:8501;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_connect_timeout 300s;
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+        }
+
+        location /_stcore/stream {
+            set $NGINX_INITIATIVE_UPSTREAM "initiative";
+            proxy_pass http://$NGINX_INITIATIVE_UPSTREAM:8501;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+    }
+
+
     server {
         listen 443 ssl;
         http2 on;
@@ -200,7 +239,7 @@ http {
         listen 443 ssl;
         http2 on;
 
-        server_name $VITE_BLUESKY_HOST;
+        server_name $BLUESKY_BASE_URL;
 
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;
@@ -251,12 +290,11 @@ http {
             proxy_set_header X-Forwarded-Port $server_port;
         }
     }
-
+    
     server {
         listen 443 ssl;
         http2 on;
 
-        # For the federation port
         listen 8448 ssl http2 default_server;
         listen [::]:8448 ssl http2 default_server;
 
@@ -265,29 +303,72 @@ http {
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;
 
+        # Set headers for CORS dynamically
+        add_header Access-Control-Allow-Origin "$http_origin" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+        add_header Access-Control-Expose-Headers "Content-Length, Content-Range" always;
+
+        # Suppress headers from the upstream Synapse service
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+        proxy_hide_header Access-Control-Expose-Headers;
+
+        # Matrix API - Root location
         location / {
             set $NGINX_SYNAPSE_UPSTREAM "synapse";
-            # note: do not add a path (even a single /) after the port in `proxy_pass`,
-            # otherwise nginx will canonicalise the URI and cause signature verification
-            # errors.
+
             proxy_pass http://$NGINX_SYNAPSE_UPSTREAM:8008;
             proxy_set_header X-Forwarded-For $remote_addr;
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header Host $host;
 
-            # Nginx by default only allows file uploads up to 1M in size
-            # Increase client_max_body_size to match max_upload_size defined in homeserver.yaml
+            # Increase file upload size
             client_max_body_size 50M;
-        
-            # Synapse responses may be chunked, which is an HTTP/1.1 feature.
+
+            # Support chunked responses
             proxy_http_version 1.1;
+
+            # Handle preflight requests
+            if ($request_method = OPTIONS) {
+                add_header Access-Control-Allow-Origin "$http_origin";
+                add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE";
+                add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+                add_header Content-Type "application/json";
+                return 204;
+            }
         }
 
+        # Matrix API - Specific location for /_matrix/
+        location /_matrix/ {
+            set $NGINX_SYNAPSE_UPSTREAM "synapse";
+
+            proxy_pass http://$NGINX_SYNAPSE_UPSTREAM:8008;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_buffering off;
+
+            # Handle preflight requests
+            if ($request_method = OPTIONS) {
+                add_header Access-Control-Allow-Origin "$http_origin";
+                add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE";
+                add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+                add_header Content-Type "application/json";
+                return 204;
+            }
+        }
+
+        # Well-known Matrix configuration
         location /.well-known/matrix/server {
             default_type application/json;
             return 200 '{"m.server": "matrix.app.codecollective.us"}';
         }
     }
+
+
 
     server {
         listen 443 ssl;

@@ -100,10 +100,11 @@
 }
 
 .profile-elements {
+    position: relative; /* Add this line */
     display: flex;
-    align-items: center; /* Vertically align profile elements */
-    gap: 10px; /* Add spacing between profile items */
-    height: 100%; /* Keep within navbar height */
+    align-items: center;
+    gap: 10px;
+    height: 100%;
 }
 
 .profile-picture {
@@ -123,8 +124,7 @@
     border-radius: 5px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     padding: 10px;
-    display: none; /* Hidden by default */
-    z-index: 10;
+    z-index: 1001;
 }
 
 .profile-elements .dropdown-menu {

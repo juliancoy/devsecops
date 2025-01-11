@@ -151,6 +151,7 @@
 	# with root privileges!
 	;ChrootDir = /var/empty
 
+
 	# Set this hostname for every client instead of the real one.
 	# Use %x to add the hashed value of the original hostname.
 	;CloakHost = cloaked.host
@@ -307,6 +308,7 @@
 
 	# IRC name of the remote server, must match the "Name" variable in
 	# the [Global] section of the other server (when using ngIRCd).
+	
 	;Name = irc2.example.net
 
 	# Internet host name or IP address of the peer (only required when
@@ -353,37 +355,24 @@
 	# something like "*Serv" or "NickServ,ChanServ,XyzServ".
 	;ServiceMask = *Serv,Global
 
-[Server]
-	# More [Server] sections, if you like ...
+[Channel]
+    Name = #Introductions
+    Topic = Welcome to the Introductions channel!
+    Modes = tnkP
 
 [Channel]
-	# Pre-defined channels can be configured in [Channel] sections.
-	# Such channels are created by the server when starting up and even
-	# persist when there are no more members left.
-	# Persistent channels are marked with the mode 'P', which can be set
-	# and unset by IRC operators like other modes on the fly.
-	# There may be more than one [Channel] block, one for each channel.
-
-	# Name of the channel
-	;Name = #TheName
-
-	# Topic for this channel
-	;Topic = a great topic
-
-	# Initial channel modes
-	;Modes = tnk
-
-	# initial channel password (mode k)
-	;Key = Secret
-
-	# Key file, syntax for each line: "<user>:<nick>:<key>".
-	# Default: none.
-	;KeyFile = /etc/ngircd/#chan.key
-
-	# maximum users per channel (mode l)
-	;MaxUsers = 23
+    Name = #General
+    Topic = General discussion and chat.
+    Modes = tnkP
 
 [Channel]
-	# More [Channel] sections, if you like ...
+    Name = #Arkavo
+    Topic = Discussions related to Arkavo.
+    Modes = tnkP
+
+[Channel]
+    Name = #SuperIntelligence
+    Topic = Exploring the realm of superintelligence.
+    Modes = tnkP
 
 # -eof-

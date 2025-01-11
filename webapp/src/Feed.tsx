@@ -1,7 +1,7 @@
 // src/Feed.tsx
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import './Feed.css';
+import './css/Feed.css';
 
 import FeedItem from './FeedItem';
 

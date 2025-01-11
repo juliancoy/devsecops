@@ -1,6 +1,6 @@
 // src/FeedItem.tsx
 import React from 'react';
-import './FeedItem.css';
+import './css/FeedItem.css';
 
 const FeedItem: React.FC<{ item: any }> = ({ item }) => {
     const { _author, avatar, display_name, handle } = item.post.author;

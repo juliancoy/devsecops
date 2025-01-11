@@ -197,7 +197,7 @@ def run_container(config):
         print(f"No container is running with name {container_name}")
     # Now run it
     print(f"Starting {container_name}")
-    DOCKER_CLIENT.containers.run(**config)
+    return DOCKER_CLIENT.containers.run(**config)
 
 
 def wait_for_db(network, db_url, db_user="postgres", max_attempts=30, delay=2):
@@ -391,25 +391,25 @@ def model_exists(model_name, network):
                 "-d", json.dumps({"name": model_name}),
             ],
             network=network,
-            remove=True,
             detach=False,
         )
     )
     
-    # Assuming `result` is an object with a `stdout` attribute containing the output
-    response_json = result.stdout
-    
+    # Decode the bytes object to a string
+    response_json = result.decode('utf-8')
+
     # Parse the JSON response
     try:
         response = json.loads(response_json)
     except json.JSONDecodeError:
-        # Handle the case where the response is not valid JSON
+        print(f"Error: Invalid JSON response: {response_json}")
         return False
-    
+
     # Check if the response contains the model's metadata
     if "license" in response or "modelfile" in response:
         return True
     else:
+        print(f"Error: Model metadata not found in response: {response}")
         return False
     
 
@@ -418,7 +418,7 @@ def model_exists(model_name, network):
 
 def pullModels(models_to_pull, network):
     for model_name in models_to_pull:
-        if not model_exists(model_name):
+        if not model_exists(model_name, network):
             print(f"Pulling model: {model_name}")
             run_container(
                 dict(

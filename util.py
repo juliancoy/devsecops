@@ -3,7 +3,10 @@ import sys
 import shutil
 import subprocess
 
-def writeViteEnv(env, output_file="webapp/.env"):
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+def writeViteEnv(env, output_file=os.path.join(here, "webapp", ".env")):
     print("Writing environment file for web app")
     # Open the file for writing
     with open(output_file, "w") as f:
@@ -44,9 +47,10 @@ def initializeFiles():
     # Check if we are in a GitHub Actions environment
     in_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
     print(in_github_actions)
-    
-    if not os.path.isfile("env.py"):
-        shutil.copy("env.example.py", "env.py")
+    envFile = os.path.join(here, "env.py")
+    envExampleFile = os.path.join(here, "env.example.py")
+    if not os.path.isfile(envFile):
+        shutil.copy(envExampleFile, envFile)
         print("env.py file did not exist and has been created. Please edit it to update the necessary values, then re-run this script.")
         
         # Exit only if not in GitHub Actions

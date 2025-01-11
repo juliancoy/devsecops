@@ -1,5 +1,5 @@
 import React from 'react';
-import './Chat.css';
+import '../css/Chat.css';
 
 interface ChatProps {
     prompt: string;
