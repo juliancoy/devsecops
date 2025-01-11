@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import '../css/ChatPage.css';
 import { useKeycloak } from '@react-keycloak/web';
 import { useNavigate } from 'react-router-dom';
+import * as sdk from 'matrix-js-sdk';
+import { ContentSteeringController } from 'hls.js';
 
 interface ChatProps {
     prompt: string;
@@ -43,11 +45,6 @@ export const Chat: React.FC<ChatProps> = ({
 };
 
 const ChatPage: React.FC = () => {
-    const people = [
-        { id: '1', firstName: 'Julian', lastName: 'Loiacono', attributes: { picture: ['https://example.com/profile1.jpg'] } },
-        { id: '2', firstName: 'Alex', lastName: 'Smith', attributes: { picture: ['https://example.com/profile2.jpg'] } },
-        { id: '3', firstName: 'Taylor', lastName: 'Doe', attributes: { picture: ['https://example.com/profile3.jpg'] } },
-    ];
 
     const { keycloak, initialized } = useKeycloak();
     const navigate = useNavigate();
@@ -55,6 +52,7 @@ const ChatPage: React.FC = () => {
     const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
     const [conversations, setConversations] = useState<{ [key: string]: string[] }>({});
     const [rooms, setRooms] = useState<any[]>([]);
+    const [people, setPeople] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -68,37 +66,222 @@ const ChatPage: React.FC = () => {
 
         if (!response.ok) throw new Error('Failed to fetch rooms');
         const data = await response.json();
-        setRooms(data.joined_rooms || []);
+
+        // Fetch room names and aliases for each room
+        const roomDetails = await Promise.all(
+            data.joined_rooms.map(async (roomId: string) => {
+                let alias: string | null = null;
+                let name: string | null = null;
+
+                // Fetch room aliases
+                try {
+                    const aliasResponse = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/aliases`, {
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    });
+
+                    if (aliasResponse.ok) {
+                        const aliasData = await aliasResponse.json();
+                        alias = aliasData.aliases?.[0] || null;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch alias for room ${roomId}:`, error);
+                }
+
+                // Fetch room name
+                try {
+                    const nameResponse = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/state/m.room.name`, {
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    });
+
+                    if (nameResponse.ok) {
+                        const nameData = await nameResponse.json();
+                        name = nameData.name || null;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch name for room ${roomId}:`, error);
+                }
+
+                return { roomId, alias, name };
+            })
+        );
+
+        console.log("Room Details:", roomDetails);
+        setRooms(roomDetails);
+    };
+
+
+    const fetchPeople = async (token: string, searchTerm: string = "", limit = 10) => {
+        const requestBody = {
+            limit,
+            search_term: searchTerm, // Empty string defaults to searching all users
+        };
+
+        const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/user_directory/search`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch people: ${response.status} ${response.statusText}`);
+        }
+
+        console.log("Response received from User Directory API.");
+        console.log("People" + response);
+        const data = await response.json();
+        setPeople(data.results || []); // Assumes the response contains a `results` array of users.
+    };
+
+
+    const handleTokenExpiry = () => {
+        localStorage.removeItem('matrixAccessToken');
+        navigate('/chatauth');
     };
 
     useEffect(() => {
-        const initialize = async () => {
+        let syncInterval: NodeJS.Timeout;
+        const processedEventIds = new Set<string>();
+
+        const fetchRoomMessages = async () => {
+            if (!selectedRoom || !accessTokenRef.current) return;
+
             try {
-                const storedAccessToken = localStorage.getItem('matrixAccessToken');
-                if (storedAccessToken) {
+                const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/sync`, {
+                    headers: {
+                        Authorization: `Bearer ${accessTokenRef.current}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to sync messages: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // Extract messages for the selected room
+                const roomEvents = data.rooms?.join?.[selectedRoom]?.timeline?.events || [];
+                const newMessages = roomEvents
+                    .filter(
+                        (event: any) =>
+                            event.type === "m.room.message" &&
+                            event.content?.msgtype === "m.text" &&
+                            !processedEventIds.has(event.event_id) // Exclude already processed events
+                    )
+                    .map((event: any) => {
+                        processedEventIds.add(event.event_id); // Mark event as processed
+                        return `${event.sender}: ${event.content.body}`;
+                    });
+
+                if (newMessages.length > 0) {
+                    setConversations((prev) => ({
+                        ...prev,
+                        [selectedRoom]: [...(prev[selectedRoom] || []), ...newMessages],
+                    }));
+                }
+            } catch (error) {
+                console.error("Error fetching room messages:", error);
+            }
+        };
+
+        // Start polling when a room is selected
+        if (selectedRoom) {
+            fetchRoomMessages(); // Initial fetch
+            syncInterval = setInterval(fetchRoomMessages, 1000); // Poll every 5 seconds
+        }
+
+        return () => {
+            if (syncInterval) clearInterval(syncInterval); // Clean up polling on unmount or room change
+        };
+    }, [selectedRoom]);
+
+    useEffect(() => {
+        const initialize = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const loginToken = urlParams.get('loginToken');
+            const storedAccessToken = localStorage.getItem('matrixAccessToken');
+
+            try {
+                if (loginToken) {
+                    // Exchange login token for access token and fetch rooms
+                    const token = await fetch(`${synapseBaseUrl}/_matrix/client/r0/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'm.login.token',
+                            token: loginToken,
+                        }),
+                    })
+                        .then((res) => {
+                            if (!res.ok) throw new Error('Failed to exchange login token');
+                            return res.json();
+                        })
+                        .then((data) => data.access_token);
+
+                    accessTokenRef.current = token;
+                    localStorage.setItem('matrixAccessToken', token);
+                    await fetchPeople(token);
+                    await fetchRooms(token);
+                } else if (storedAccessToken) {
+                    // Use stored token to fetch rooms
                     accessTokenRef.current = storedAccessToken;
+                    await fetchPeople(storedAccessToken);
                     await fetchRooms(storedAccessToken);
                 } else {
+                    // No token found, redirect to auth
                     navigate('/chatauth');
                 }
                 setLoading(false);
             } catch (err) {
-                console.error(err);
-                setError('Failed to initialize');
+                console.error('Initialize error:', err);
+                setError(err instanceof Error ? err.message : 'Unknown error occurred');
                 setLoading(false);
             }
         };
-        initialize();
-    }, [navigate]);
 
-    const handleSubmit = () => {
+        initialize();
+    }, [navigate, synapseBaseUrl]);
+
+    const handleSubmit = async () => {
         if (!prompt.trim() || !selectedRoom) return;
-        setConversations((prev) => ({
-            ...prev,
-            [selectedRoom]: [...(prev[selectedRoom] || []), `You: ${prompt}`],
-        }));
-        setPrompt('');
+
+        try {
+            // Generate a unique transaction ID (can be a random UUID or timestamp)
+            const txnId = `m${Date.now()}`;
+
+            const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${selectedRoom}/send/m.room.message/${txnId}`, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${accessTokenRef.current}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    msgtype: "m.text",
+                    body: prompt,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+            }
+
+            console.log("Message sent successfully!");
+
+            // Add the message locally to the conversations
+            setConversations((prev) => ({
+                ...prev,
+                [selectedRoom]: [...(prev[selectedRoom] || []), `You: ${prompt}`],
+            }));
+            setPrompt('');
+        } catch (error) {
+            console.error("Error sending message:", error);
+            alert("Failed to send message. Please try again.");
+        }
     };
+
 
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -118,17 +301,20 @@ const ChatPage: React.FC = () => {
         <div className="chat-page">
             <div className="sidebar">
                 <div className="rooms-list">
-                    {rooms.map((room) => (
+                    {rooms.map(({ roomId, alias, name }) => (
                         <div
-                            key={room}
-                            className={`room-item ${selectedRoom === room ? 'selected' : ''}`}
-                            onClick={() => handleRoomSelect(room)}
+                            key={roomId}
+                            className={`room-item ${selectedRoom === roomId ? 'selected' : ''}`}
+                            onClick={() => handleRoomSelect(roomId)}
                         >
-                            <div className="room-avatar">{room[0].toUpperCase()}</div>
-                            <span>{room}</span>
+                            <div className="room-avatar">
+                                {name ? name[0].toUpperCase() : alias ? alias[1].toUpperCase() : roomId[0].toUpperCase()}
+                            </div>
+                            <span>{name || alias || roomId}</span>
                         </div>
                     ))}
                 </div>
+
                 <div className="add-room" onClick={() => alert('Add Room')}>
                     +
                 </div>

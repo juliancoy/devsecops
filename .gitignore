@@ -246,3 +246,6 @@ synapse/element-config.json
 
 webapp/src/global.css
 webapp/src/wtf.json
+synapse/homeserver.db
+synapse/homeserver.db-shm
+synapse/homeserver.db-wal

@@ -28,7 +28,6 @@ html, body {
 }
 
 .rooms-list {
-    flex-grow: 1;
     padding: 16px;
 }
 
@@ -133,7 +132,6 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
     font-size: 1.2rem;
     color: #666;
 }
