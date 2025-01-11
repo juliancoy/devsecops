@@ -15,6 +15,7 @@
     "hls.js": "^1.5.18",
     "jquery": "^3.7.1",
     "keycloak-js": "^26.0.7",
+    "matrix-js-sdk": "^35.1.0",
     "oidc-client": "^1.11.5",
     "popper.js": "^1.16.1",
     "react": "^18.3.1",

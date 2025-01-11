@@ -1,9 +1,46 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import '../css/ChatPage.css';
-import { Sidebar } from '../Sidebar';
-import { Chat } from './Chat';
 import { useKeycloak } from '@react-keycloak/web';
 import { useNavigate } from 'react-router-dom';
+
+interface ChatProps {
+    prompt: string;
+    setPrompt: React.Dispatch<React.SetStateAction<string>>;
+    handleSubmit: () => void;
+    handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+    conversations: string[];
+}
+
+export const Chat: React.FC<ChatProps> = ({
+    prompt,
+    setPrompt,
+    handleSubmit,
+    handleKeyDown,
+    conversations = []
+}) => {
+    return (
+        <main className="chat-container">
+            <div className="chat-box">
+                <div className="responses-container">
+                    {conversations.map((response, index) => (
+                        <div key={index} className="chat-message">{response}</div>
+                    ))}
+                </div>
+                <div className="input-container">
+                    <textarea
+                        className="chat-input"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter your prompt"
+                        rows={3}
+                    />
+                    <button className="send-button" onClick={handleSubmit}>Send</button>
+                </div>
+            </div>
+        </main>
+    );
+};
 
 const ChatPage: React.FC = () => {
     const people = [
@@ -15,80 +52,52 @@ const ChatPage: React.FC = () => {
     const { keycloak, initialized } = useKeycloak();
     const navigate = useNavigate();
     const [prompt, setPrompt] = useState('');
-    const [selectedPerson, setSelectedPerson] = useState('Llama');
-    const [conversations, setConversations] = useState<{ [key: string]: string[] }>({ Llama: [] });
-    const [showChat, setShowChat] = useState(false);
+    const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+    const [conversations, setConversations] = useState<{ [key: string]: string[] }>({});
+    const [rooms, setRooms] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [rooms, setRooms] = useState<any[]>([]);
 
-    const accessTokenRef = useRef<string | null>(null); // Persist accessToken across renders
+    const accessTokenRef = useRef<string | null>(null);
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
-    const fetchMatrixData = async (token: string) => {
-        const roomsResponse = await fetch(`${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
+    const fetchRooms = async (token: string) => {
+        const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
 
-        if (!roomsResponse.ok) throw new Error('Failed to fetch joined rooms');
-        const roomsData = await roomsResponse.json();
-        setRooms(roomsData.joined_rooms || []);
+        if (!response.ok) throw new Error('Failed to fetch rooms');
+        const data = await response.json();
+        setRooms(data.joined_rooms || []);
     };
 
     useEffect(() => {
         const initialize = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const loginToken = urlParams.get('loginToken');
-            const storedAccessToken = localStorage.getItem('matrixAccessToken');
-
             try {
-                if (loginToken) {
-                    // Exchange login token for access token and fetch rooms
-                    const token = await fetch(`${synapseBaseUrl}/_matrix/client/r0/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            type: 'm.login.token',
-                            token: loginToken,
-                        }),
-                    })
-                        .then((res) => {
-                            if (!res.ok) throw new Error('Failed to exchange login token');
-                            return res.json();
-                        })
-                        .then((data) => data.access_token);
-
-                    accessTokenRef.current = token;
-                    localStorage.setItem('matrixAccessToken', token);
-                    await fetchMatrixData(token);
-                } else if (storedAccessToken) {
-                    // Use stored token to fetch rooms
+                const storedAccessToken = localStorage.getItem('matrixAccessToken');
+                if (storedAccessToken) {
                     accessTokenRef.current = storedAccessToken;
-                    await fetchMatrixData(storedAccessToken);
+                    await fetchRooms(storedAccessToken);
                 } else {
-                    // No token found, redirect to auth
                     navigate('/chatauth');
                 }
                 setLoading(false);
             } catch (err) {
-                console.error('Initialize error:', err);
-                setError(err instanceof Error ? err.message : 'Unknown error occurred');
+                console.error(err);
+                setError('Failed to initialize');
                 setLoading(false);
             }
         };
-
         initialize();
-    }, [navigate, synapseBaseUrl]);
+    }, [navigate]);
 
-    const handleSubmit = async () => {
-        if (!prompt.trim()) return;
+    const handleSubmit = () => {
+        if (!prompt.trim() || !selectedRoom) return;
         setConversations((prev) => ({
             ...prev,
-            [selectedPerson]: [...prev[selectedPerson], `You: ${prompt}`],
+            [selectedRoom]: [...(prev[selectedRoom] || []), `You: ${prompt}`],
         }));
+        setPrompt('');
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -98,49 +107,53 @@ const ChatPage: React.FC = () => {
         }
     };
 
-    const handlePersonSelect = (person: string) => {
-        setSelectedPerson(person);
-        setShowChat(true);
+    const handleRoomSelect = (roomId: string) => {
+        setSelectedRoom(roomId);
     };
 
-    const isMobile = window.innerWidth <= 768;
-
-    if (loading) return <div>Loading data...</div>;
+    if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (
-        <div id="app-container">
-            {(!isMobile || !showChat) && (
-                <Sidebar people={people} selectedPerson={selectedPerson} onPersonSelect={handlePersonSelect} />
-            )}
-            {isMobile && showChat && (
-                <div className="chat-window active">
-                    <div className="back-button" onClick={() => setShowChat(false)}>← Back</div>
+        <div className="chat-page">
+            <div className="sidebar">
+                <div className="rooms-list">
+                    {rooms.map((room) => (
+                        <div
+                            key={room}
+                            className={`room-item ${selectedRoom === room ? 'selected' : ''}`}
+                            onClick={() => handleRoomSelect(room)}
+                        >
+                            <div className="room-avatar">{room[0].toUpperCase()}</div>
+                            <span>{room}</span>
+                        </div>
+                    ))}
+                </div>
+                <div className="add-room" onClick={() => alert('Add Room')}>
+                    +
+                </div>
+                <div className="people-list">
+                    <h4>People</h4>
+                    {people.map((person) => (
+                        <div key={person.id} className="person-item">
+                            <img src={person.attributes.picture[0]} alt={person.firstName} />
+                            <span>{person.firstName} {person.lastName}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="chat-area">
+                {selectedRoom ? (
                     <Chat
                         prompt={prompt}
                         setPrompt={setPrompt}
                         handleSubmit={handleSubmit}
                         handleKeyDown={handleKeyDown}
-                        conversations={conversations[selectedPerson]}
+                        conversations={conversations[selectedRoom] || []}
                     />
-                </div>
-            )}
-            {!isMobile && (
-                <Chat
-                    prompt={prompt}
-                    setPrompt={setPrompt}
-                    handleSubmit={handleSubmit}
-                    handleKeyDown={handleKeyDown}
-                    conversations={conversations[selectedPerson]}
-                />
-            )}
-            <div>
-                <h2>Joined Rooms:</h2>
-                <ul>
-                    {rooms.map((room) => (
-                        <li key={room}>{room}</li>
-                    ))}
-                </ul>
+                ) : (
+                    <div className="select-room">Select a room to start chatting</div>
+                )}
             </div>
         </div>
     );
