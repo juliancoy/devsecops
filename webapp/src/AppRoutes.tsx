@@ -26,13 +26,15 @@ interface AppRoutesProps {
     onToggleDarkMode: () => void;
 }
 
+/*
+<button onClick={onToggleDarkMode}>
+{darkMode ? '☀️' : '🌒'}
+</button>*/
+
 const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => {
     return (
         <div id="fullpage" className={darkMode ? 'dark-mode' : ''}>
             <Navbar />
-            <button onClick={onToggleDarkMode}>
-                {darkMode ? '☀️' : '🌒'}
-            </button>
             <Routes>
                 <Route path="/" element={<Feed />} /> {/* Home route for the feed */}
                 <Route path="/privacy" element={<Privacy />} /> {/* Privacy page route */}

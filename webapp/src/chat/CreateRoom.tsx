@@ -1,85 +1,91 @@
 import React, { useState } from 'react';
 import '../css/CreateRoom.css';
 import { useNavigate } from 'react-router-dom';
-import { useKeycloak } from '@react-keycloak/web';
 
 const CreateRoom: React.FC = () => {
-    const { keycloak, initialized } = useKeycloak();
     const navigate = useNavigate();
     const [roomName, setRoomName] = useState('');
     const [roomTopic, setRoomTopic] = useState('');
+    const [roomVisibility, setRoomVisibility] = useState('private_chat');
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
 
-    const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
+    const handleCreateRoom = async (e: React.FormEvent) => {
+        e.preventDefault(); // Prevent default form submission behavior
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!roomName.trim()) {
-            setError('Room name is required');
+        const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
+        console.log("Creating Room 1");
+
+        const accessToken = localStorage.getItem('matrixAccessToken');
+        if (!accessToken) {
+            setError("Authentication token not found. Please log in again.");
             return;
         }
 
-        const storedAccessToken = localStorage.getItem('matrixAccessToken');
-        if (!storedAccessToken) {
-            navigate('/chatauth');
-            return;
-        }
+        console.log("Creating Room 2");
+        const requestBody = {
+            name: roomName,
+            topic: roomTopic,
+            preset: roomVisibility, // "private_chat" or "public_chat"
+        };
 
-        setLoading(true);
         try {
-            const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/createRoom`, {
+            const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/createRoom`, {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${storedAccessToken}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    name: roomName,
-                    topic: roomTopic,
-                    preset: 'public_chat', // Set room visibility to public
-                }),
+                body: JSON.stringify(requestBody),
             });
 
-            if (!response.ok) throw new Error('Failed to create room');
+            if (!response.ok) {
+                throw new Error(`Failed to create room: ${response.statusText}`);
+            }
+
             const data = await response.json();
-            navigate(`/room/${data.room_id}`); // Redirect to the new room
-        } catch (err) {
-            console.error('Error creating room:', err);
-            setError(err instanceof Error ? err.message : 'Unknown error occurred');
-        } finally {
-            setLoading(false);
+            console.log("Room created:", data);
+
+            // Redirect to the chat page
+            navigate('/chat');
+        } catch (error) {
+            console.error("Error creating room:", error);
+            setError("Failed to create room. Please try again.");
         }
     };
 
     return (
         <div className="create-room-container">
-            <h1>Create a Room</h1>
-            {error && <div className="error">{error}</div>}
-            <form onSubmit={handleSubmit} className="create-room-form">
-                <div className="form-group">
-                    <label htmlFor="roomName">Room Name</label>
+            <h2>Create a Room</h2>
+            {error && <div className="error-message">{error}</div>}
+            <form onSubmit={handleCreateRoom}>
+                <label>
+                    Room Name:
                     <input
                         type="text"
-                        id="roomName"
                         value={roomName}
                         onChange={(e) => setRoomName(e.target.value)}
-                        placeholder="Enter room name"
                         required
                     />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="roomTopic">Room Topic</label>
-                    <textarea
-                        id="roomTopic"
+                </label>
+                <label>
+                    Room Topic:
+                    <input
+                        type="text"
                         value={roomTopic}
                         onChange={(e) => setRoomTopic(e.target.value)}
-                        placeholder="Enter room topic (optional)"
-                    ></textarea>
-                </div>
-                <button type="submit" className="submit-button" disabled={loading}>
-                    {loading ? 'Creating...' : 'Create Room'}
-                </button>
+                    />
+                </label>
+                <label>
+                    Room Visibility:
+                    <select
+                        value={roomVisibility}
+                        onChange={(e) => setRoomVisibility(e.target.value)}
+                    >
+                        <option value="private_chat">Private</option>
+                        <option value="public_chat">Public</option>
+                    </select>
+                </label>
+                <button type="submit">Create Room</button>
             </form>
         </div>
     );

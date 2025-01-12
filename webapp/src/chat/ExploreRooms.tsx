@@ -13,17 +13,52 @@ const ExploreRooms: React.FC = () => {
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
     const fetchPublicRooms = async (token: string) => {
-        const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/publicRooms`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        try {
+            const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/publicRooms`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        if (!response.ok) throw new Error('Failed to fetch public rooms');
-        const data = await response.json();
-        console.log(data.chunk);
-        setPublicRooms(data.chunk || []);
+            if (!response.ok) throw new Error('Failed to fetch public rooms');
+            const data = await response.json();
+            setPublicRooms(data.chunk || []);
+        } catch (err) {
+            console.error('Error fetching public rooms:', err);
+            setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        }
+    };
+
+    const joinRoom = async (roomId: string) => {
+        const accessToken = localStorage.getItem('matrixAccessToken');
+        if (!accessToken) {
+            navigate('/chatauth');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/join/${encodeURIComponent(roomId)}`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to join room: ${response.statusText}`);
+            }
+
+            // Save the room ID to localStorage
+            localStorage.setItem('selectedRoom', roomId);
+
+            // Navigate back to the chat page
+            navigate('/chat');
+        } catch (err) {
+            console.error('Error joining room:', err);
+            setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        }
     };
 
     useEffect(() => {
@@ -35,12 +70,13 @@ const ExploreRooms: React.FC = () => {
                 return;
             }
 
+            setLoading(true);
+
             try {
                 await fetchPublicRooms(storedAccessToken);
-                setLoading(false);
             } catch (err) {
-                console.error('Error fetching public rooms:', err);
                 setError(err instanceof Error ? err.message : 'Unknown error occurred');
+            } finally {
                 setLoading(false);
             }
         };
@@ -64,7 +100,11 @@ const ExploreRooms: React.FC = () => {
             </div>
             <ul>
                 {publicRooms.map((room) => (
-                    <li key={room.room_id}>
+                    <li
+                        key={room.room_id}
+                        className="room-item"
+                        onClick={() => joinRoom(room.room_id)} // Join room on click
+                    >
                         <div>
                             <h2>{room.name || 'Unnamed Room'}</h2>
                             <p>{room.topic || 'No topic provided'}</p>
