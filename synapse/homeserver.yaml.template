@@ -9,7 +9,7 @@
 # For more information on how to configure Synapse, including a complete accounting of
 # each option, go to docs/usage/configuration/config_documentation.md or
 # https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html
-server_name: "matrix.app.codecollective.us"
+server_name: "matrix.$USER_WEBSITE"
 pid_file: /data/homeserver.pid
 
 bind_addresses: ['0.0.0.0']
@@ -42,7 +42,7 @@ registration_requires_token: true
 oidc_providers:
   - idp_id: keycloak
     idp_name: "KeyCloak server"
-    issuer: "https://keycloak.app.codecollective.us/auth/realms/opentdf"
+    issuer: "https://keycloak.$USER_WEBSITE/auth/realms/opentdf"
     client_id: "synapse"
     client_secret: "$SYNAPSE_CLIENT_SECRET"
     scopes: ["openid", "profile"]
@@ -66,13 +66,13 @@ database:
   name: sqlite3
   args:
     database: /data/homeserver.db
-log_config: "/data/matrix.app.codecollective.us.log.config"
+log_config: "/data/$BRAND_NAME.log.config"
 media_store_path: /data/media_store
 registration_shared_secret: ";puZ#1,lJgoC-_AsCLYSXe_wF;:hMxQ^IHrZMAnq#WyxNWsGSG"
 report_stats: true
 macaroon_secret_key: "FCY*p~51G5x:QT^0UA,N5&E^D*SKnVEWZp.*+ZkAeIhnC@CGNk"
 form_secret: "YgUZiuu-,fNY12QnSF3o6N@KJ3P^OXe*AQzm9sg2e~7~DhrQss"
-signing_key_path: "/data/matrix.app.codecollective.us.signing.key"
+signing_key_path: "/data/matrix.$USER_WEBSITE.signing.key"
 trusted_key_servers:
   - server_name: "matrix.org"
 

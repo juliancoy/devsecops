@@ -72,7 +72,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                     eventId: event.event_id, // Include event ID for deduplication
                 }));
 
-            messages.sort((a, b) => a.timestamp - b.timestamp);
+            messages.sort((a: Message, b: Message) => (a.timestamp || 0) - (b.timestamp || 0));
 
             setConversations((prev) => {
                 const combinedMessages = [...prev, ...messages];
