@@ -97,6 +97,7 @@ if "ollama" in env.SERVICES_TO_RUN:
 if "bluesky" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.bluesky)
     utils_docker.run_container(env.bluesky_bridge)
+    utils_docker.run_container(env.bsky_fyp)
 
 if "irc" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.irc)

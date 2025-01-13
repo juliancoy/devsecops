@@ -12,7 +12,6 @@ last_updated = {}  # Timestamp of the last update
 update_interval = 300  # 5 minutes in seconds
 
 def serve_feed(did = "did:plc:y7crv2yh74s7qhmtx3mvbgv5", feed = "art-new"):
-    # PYTHON ERRS WITH THE FOLLOWING GLOBALS
     global last_updated
     global feed_dict
 
