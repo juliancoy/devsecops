@@ -8,11 +8,11 @@ const MatrixAuthForward: React.FC = () => {
 
     const initiateSSOLogin = async () => {
         const redirectUrl = `${window.location.origin}/chatauth`;
-        window.location.href = `${synapseBaseUrl}/_matrix/client/r0/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`;
+        window.location.href = `https://${synapseBaseUrl}/_matrix/client/r0/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`;
     };
 
     const exchangeLoginTokenForAccessToken = async (loginToken: string): Promise<string> => {
-        const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/login`, {
+        const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

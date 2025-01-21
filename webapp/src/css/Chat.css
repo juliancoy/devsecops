@@ -4,20 +4,27 @@
     height: 100%;
     box-sizing: border-box;
 }
-
+    
 .chat-box {
+    display: flex;
     flex-direction: column;
     height: 100%;
-    box-sizing: border-box;
     background-color: #000;
-    overflow: auto;
+    overflow: hidden; /* Hide overflow to prevent scrollbars */
+}
+
+.input-container {
+    display: flex;
+    padding: 10px;
+    background-color: #242424;
+    height: 20%; /* Fixed height of 20% */
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .responses-container {
-    flex: 1;
-    overflow-y: auto;
+    flex: 1; /* Take up remaining space (80%) */
+    overflow-y: auto; /* Allow scrolling for responses */
     padding: 10px;
-    max-height: calc(100vh - 120px); /* Adjust based on your layout */
 }
 
 .chat-message {
@@ -67,11 +74,6 @@
     word-wrap: break-word;
 }
 
-.input-container {
-    display: flex;
-    padding: 10px;
-    background-color: #242424;
-}
 
 .chat-input {
     flex: 1;

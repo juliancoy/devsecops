@@ -1,61 +1,10 @@
-# Most common options to change
-BRAND_NAME = "arkavo"
-VITE_BRAND_NAME = "arkavo"
-BRAND_COLOR_DARK = "#f99742"
-BRAND_COLOR_LIGHT = "#F4A460"
-USER_WEBSITE = "localhost"
-PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
-USER_EMAIL = "youremail@example.com"
-KEYCLOAK_ADMIN_PASSWORD = "changeme"
-SERVICES_TO_RUN = [
-    "keycloak",
-    "org",
-    "opentdf",
-    "AICouncil",
-    "nginx",
-    "synapse",
-    "element",
-    #"ollama",
-    "bluesky",
-    "webapp",
-    "webapp_build",
-    #"irc"
-]
-
-distinguisher = "" # If you are running multiple deployments on the same machine, you can distinguish them here
-KEYCLOAK_PORT = ""  # if applicable
-KEYCLOAK_INTERNAL_URL = "keycloak:8888"
-SYNAPSE_CLIENT_SECRET = "changeme"
-
-# OAUTH Config
-# Google OAuth Config
-GOOGLE_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GOOGLE_CLIENT_ID = "<YOUR GOOGLE OAUTH CLIENT ID>"
-GOOGLE_SCOPES = "openid profile email"
-GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-
-# GitHub OAuth Config
-GITHUB_CLIENT_SECRET = "<YOUR SECRET HERE>"
-GITHUB_CLIENT_ID = "<YOUR GITHUB OAUTH CLIENT ID>"
-GITHUB_SCOPES = "openid profile email"
-GITHUB_AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
-
-PEM_FILE = "<YOUR SECRET HERE>"
-SERVER_USER = "<YOUR SECRET HERE>"
-SERVER_HOST = "<YOUR SECRET HERE>"
-REMOTE_FOLDER = "<YOUR SECRET HERE>"
-ZIP_FILE = "<YOUR SECRET HERE>"
-LOCAL_DESTINATION = "<YOUR SECRET HERE>"
-EXTRACT_FOLDER = "<YOUR SECRET HERE>"  # Name of the folder after extraction
-
+from editme import *
 
 # The remainder of the environment can be generated
 import os
 import requests
 import json
-import copy 
+import copy
 import util
 
 # Get the current user's UID and GID
@@ -70,14 +19,10 @@ nginx_dir = os.path.join(current_dir, "nginx")
 webapp_dir = os.path.join(current_dir, "webapp")
 org_dir = os.path.join(current_dir, "org")
 certs_dir = os.path.join(current_dir, "certs")
-discourse_dir = os.path.join(current_dir, "discourse")
 keys_dir = os.path.join(certs_dir, "keys")
 synapse_dir = os.path.join(current_dir, "synapse")
 bsky_bridge_dir = os.path.join(current_dir, "bsky_bridge")
-irc_dir = os.path.join(current_dir, "irc")
 gitea_dir = os.path.join(current_dir, "gitea")
-thelounge_dir = os.path.join(current_dir, "thelounge")
-
 # Check to see if we're in an EC2 instance
 ec2_metadata_base_url = "http://169.254.169.254/latest/meta-data/"
 try:
@@ -105,10 +50,11 @@ KEYCLOAK_BASE_URL = "keycloak." + USER_WEBSITE
 KEYCLOAK_HOST = "https://" + KEYCLOAK_BASE_URL
 
 OPENTDF_BASE_URL = "opentdf." + USER_WEBSITE
-OLLAMA_BASE_URL  = "ollama." + USER_WEBSITE
-ORG_BASE_URL     = "org." + USER_WEBSITE
+OLLAMA_BASE_URL = "ollama." + USER_WEBSITE
+ORG_BASE_URL = "org." + USER_WEBSITE
 SYNAPSE_BASE_URL = "matrix." + USER_WEBSITE
 BLUESKY_BASE_URL = "bluesky." + USER_WEBSITE
+BSKY_FYP_BASE_URL = "bsky_fyp." + USER_WEBSITE
 ELEMENT_BASE_URL = "element." + USER_WEBSITE
 BSKY_BRIDGE_BASE_URL = "bsky_bridge." + USER_WEBSITE
 WEBAPP_DEV_BASE_URL = "dev." + USER_WEBSITE
@@ -117,9 +63,10 @@ THELOUNGE_BASE_URL = "thelounge." + USER_WEBSITE
 INITIATIVE_BASE_URL = "initiative." + USER_WEBSITE
 
 PROTOCOL_OPENTDF_BASE_URL = "https://" + OPENTDF_BASE_URL
-PROTOCOL_ORG_BASE_URL     = "https://" + ORG_BASE_URL
+PROTOCOL_ORG_BASE_URL = "https://" + ORG_BASE_URL
 PROTOCOL_SYNAPSE_BASE_URL = "https://" + SYNAPSE_BASE_URL
-VITE_SYNAPSE_BASE_URL = PROTOCOL_SYNAPSE_BASE_URL
+VITE_SYNAPSE_BASE_URL = SYNAPSE_BASE_URL
+VITE_PROTOCOL_SYNAPSE_BASE_URL = PROTOCOL_SYNAPSE_BASE_URL
 
 VITE_BLUESKY_HOST = "https://" + BLUESKY_BASE_URL
 VITE_PUBLIC_URL = USER_WEBSITE
@@ -294,7 +241,7 @@ keycloak = {
         "KEYCLOAK_FRONTEND_URL": KEYCLOAK_AUTH_URL,
         "KC_HOSTNAME_URL": KEYCLOAK_AUTH_URL,
         "KC_FEATURES": "preview,token-exchange",
-        "KC_LOG_LEVEL":"INFO",
+        "KC_LOG_LEVEL": "INFO",
         "KC_HEALTH_ENABLED": "true",
         "KC_HTTPS_KEY_STORE_PASSWORD": "password",
         "KC_HTTPS_KEY_STORE_FILE": "/truststore/truststore.jks",
@@ -344,7 +291,7 @@ webapp_build = dict(
     restart_policy={"Name": "no"},
     volumes={
         webapp_dir: {"bind": "/usr/src/app", "mode": "rw"},
-        #"dist_volume": {"bind": "/usr/src/app/dist", "mode": "rw"},
+        # "dist_volume": {"bind": "/usr/src/app/dist", "mode": "rw"},
     },
     working_dir="/usr/src/app",
     environment={
@@ -472,19 +419,55 @@ ollama = {
     "image": "ollama/ollama",
 }
 
+
+sglang = dict(
+    image= "lmsysorg/sglang:latest",
+    name= "sglang",
+    volumes={
+        os.path.join(current_dir, "huggingface"): {
+            "bind": "/root/.cache/huggingface",
+            "mode": "rw",
+        },
+    },
+    restart_policy={"Name": "always"},
+    detach=True,
+    network=NETWORK_NAME,
+    # Uncomment if using port mapping instead of host mode
+    # "ports": {"30000/tcp": 30000},
+    environment= {
+        "HF_TOKEN": "<secret>",
+        # Uncomment if using modelscope
+        # "SGLANG_USE_MODELSCOPE": "true"
+    },
+    entrypoint= "python3 -m sglang.launch_server",
+    command= [
+        "--model-path", "meta-llama/Llama-3.1-8B-Instruct",
+        "--host", "0.0.0.0",
+        "--port", "30000"
+    ],
+    ulimits= [
+        {"Name": "memlock", "Soft": -1, "Hard": -1},
+        {"Name": "stack", "Soft": 67108864, "Hard": 67108864}
+    ],
+    ipc_mode= "host",
+    healthcheck={
+        "test": ["CMD-SHELL", "curl -f http://localhost:30000/health || exit 1"]
+    }
+)
+
 from docker.types import DeviceRequest
 
 # Check for NVIDIA GPU
 if util.check_nvidia_gpu():
-    ollama["device_requests"] = [
-        DeviceRequest(count=1, capabilities=[["gpu"]], driver="nvidia")
-    ]
+    drequests = DeviceRequest(count=1, capabilities=[["gpu"]], driver="nvidia")
+    ollama["device_requests"] = [drequests]
+    sglang["device_requests"] = [drequests]
 
 # Check for AMD GPU
 elif util.check_amd_gpu():
-    ollama["device_requests"] = [
-        DeviceRequest(count=1, capabilities=[["gpu"]], driver="amd")
-    ]
+    drequests = DeviceRequest(count=1, capabilities=[["gpu"]], driver="amd")
+    ollama["device_requests"] = [drequests]
+    sglang["device_requests"] = [drequests]
 
 # BLUESKY CRYPTO SETUP
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -519,29 +502,6 @@ element = dict(
     network=NETWORK_NAME,
 )
 
-discourse = dict(
-    image="discourse/discourse:latest",  # Official Discourse image
-    name="discourse",
-    detach=True,  # Runs the container in detached mode
-    restart_policy={
-        "Name": "unless-stopped"
-    },  # Ensures the container restarts unless manually stopped
-    volumes={
-        f"{discourse_dir}/data": {
-            "bind": "/var/www/discourse/data",
-            "mode": "rw",
-        },  # Data volume
-        f"{discourse_dir}/config/app.yml": {
-            "bind": "/var/www/discourse/config/app.yml",
-            "mode": "rw",
-        },  # Config volume
-    },
-    network=NETWORK_NAME,  # Ensure it joins the correct network
-)
-
-BLUESKY_HANDLE = "your_handle"
-BLUESKY_PASSWORD = 'your_password'
-
 bluesky_bridge = dict(
     image="python:3.11-slim",
     detach=True,
@@ -557,6 +517,10 @@ bluesky_bridge = dict(
     ),
     command=["sh", "-c", "pip install atproto flask && python serve_feed.py"],
 )
+
+bsky_fyp = copy.copy(bluesky_bridge)
+bsky_fyp["name"]="bsky_fyp"
+bsky_fyp["command"]=["sh", "-c", "pip install atproto flask && python serve_vertical_fyp.py"]
 
 bluesky = dict(
     image="ghcr.io/bluesky-social/pds:latest",
@@ -587,22 +551,6 @@ bluesky = dict(
     ),
 )
 
-irc = dict(
-    image="lscr.io/linuxserver/ngircd:latest",
-    name="irc",
-    detach=True,
-    network=NETWORK_NAME,
-    environment=dict(PUID=1000, PGID=1000, TZ="Etc/UTC"),
-    volumes={
-        os.path.join(irc_dir, "config"): {"bind": "/config", "mode": "rw"},
-        os.path.join(irc_dir, "config", "ngitcd.motd"): {
-            "bind": "/etc/ngircd/ngircd.motd",
-            "mode": "rw",
-        },
-    },
-    restart_policy={"Name": "unless-stopped"},
-)
-
 
 gitea = dict(
     image="gitea/gitea:latest",
@@ -626,21 +574,5 @@ act_runner = dict(
     environment={
         "GITEA_INSTANCE_URL": "http://gitea:3000",
         "RUNNER_LABELS": "ubuntu-latest:docker://node:16-bullseye",
-    },
-)
-
-thelounge = dict(
-    image="ghcr.io/thelounge/thelounge:latest",
-    name="thelounge",
-    detach=True,
-    network=NETWORK_NAME,
-    volumes={
-        thelounge_dir: {
-            "bind": "/var/opt/thelounge",
-            "mode": "rw",
-        },
-    },
-    restart_policy={
-        "Name": "always",
     },
 )

@@ -14,7 +14,7 @@ const ExploreRooms: React.FC = () => {
 
     const fetchPublicRooms = async (token: string) => {
         try {
-            const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/publicRooms`, {
+            const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/publicRooms`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',

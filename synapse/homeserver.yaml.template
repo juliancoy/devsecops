@@ -62,10 +62,18 @@ listeners:
       - names: [client, federation]
         compress: false
 
+# Database configuration
 database:
-  name: sqlite3
+  name: psycopg2
   args:
-    database: /data/homeserver.db
+    user: "postgres"
+    password: "changeme"
+    database: "synapse"
+    host: "synapsedb"
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+    
 log_config: "/data/$BRAND_NAME.log.config"
 media_store_path: /data/media_store
 registration_shared_secret: ";puZ#1,lJgoC-_AsCLYSXe_wF;:hMxQ^IHrZMAnq#WyxNWsGSG"

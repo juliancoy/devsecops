@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKeycloak } from '@react-keycloak/web';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBell, faEnvelope, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faEnvelope, faCalendar, faBullhorn, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
 import './css/Navbar.css';
 import logo from './assets/logo.png';
 import { loginAndFetchProfile, logoutAndClearProfile, UserProfile } from './keycloakUtils';
@@ -61,9 +61,15 @@ const Navbar: React.FC = () => {
         {userProfile ? (
           <div className="profile-elements">
             <FontAwesomeIcon
+              icon={faPlusCircle}
+              className="icon plus-icon"
+              title="Create"
+              onClick={() => navigate('/create')}
+            />
+            <FontAwesomeIcon
               icon={faLock}
               className="icon lock-icon"
-              title="Events"
+              title="TDF"
               onClick={() => navigate('/tdf')}
             />
             <FontAwesomeIcon
