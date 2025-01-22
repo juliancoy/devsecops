@@ -4,7 +4,6 @@ import { useKeycloak } from '@react-keycloak/web';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faEnvelope, faCalendar, faBullhorn, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
 import './css/Navbar.css';
-import logo from './assets/logo.png';
 import { loginAndFetchProfile, logoutAndClearProfile, UserProfile } from './keycloakUtils';
 import { faLock } from '@fortawesome/free-solid-svg-icons/faLock';
 
@@ -43,7 +42,7 @@ const Navbar: React.FC = () => {
   return (
     <nav className="navbar">
       <div className="logo-container">
-        <img src={logo} className="icon" alt="Arkavo logo" />
+        <img src={import.meta.env.VITE_LOGO_URL} className="icon" alt="Arkavo logo" />
         <div className="navbar-logo">
           <a href="/" className="home-link">{import.meta.env.VITE_BRAND_NAME}</a>
         </div>

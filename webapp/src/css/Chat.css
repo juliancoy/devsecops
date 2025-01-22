@@ -69,7 +69,7 @@
 .message-sender {
     font-weight: bold;
     margin-bottom: 2px;
-    color: #007bff; /* Different color for sender name */
+    color: var(--arkavo-orange, red); /* Different color for sender name */
 }
 
 .message-timestamp {
@@ -122,7 +122,7 @@
 
 .send-button {
     padding: 10px 15px;
-    background-color: #007bff;
+    background-color: var(--arkavo-dark-orange, red);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -130,5 +130,5 @@
 }
 
 .send-button:hover {
-    background-color: #0056b3;
+    background-color: var(--arkavo-dark-orange, red);
 }
