@@ -1,8 +1,11 @@
+// ChatPage.tsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import '../css/ChatPage.css';
 import { useKeycloak } from '@react-keycloak/web';
 import { useNavigate } from 'react-router-dom';
 import { Chat } from './Chat';
+import { fetchRooms, fetchPeople, joinRoom } from './Utils'; // Import joinRoom function
 
 const ChatPage: React.FC = () => {
     const { keycloak, initialized } = useKeycloak();
@@ -19,91 +22,24 @@ const ChatPage: React.FC = () => {
     const accessTokenRef = useRef<string | null>(null);
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
-    const fetchRooms = async (token: string) => {
-        const response = await fetch(`${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-    
-        if (!response.ok) throw new Error('Failed to fetch rooms');
-        const data = await response.json();
-    
-        // Fetch room names and aliases for each room
-        const roomDetails = await Promise.all(
-            data.joined_rooms.map(async (roomId: string) => {
-                let alias: string | null = null;
-                let name: string | null = null;
-    
-                // Fetch room aliases
-                try {
-                    const aliasResponse = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/aliases`, {
-                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    });
-    
-                    if (aliasResponse.ok) {
-                        const aliasData = await aliasResponse.json();
-                        alias = aliasData.aliases?.[0] || null;
-                    }
-                } catch (error) {
-                    console.warn(`Failed to fetch alias for room ${roomId}:`, error);
-                }
-    
-                // Fetch room name
-                try {
-                    const nameResponse = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/state/m.room.name`, {
-                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    });
-    
-                    if (nameResponse.ok) {
-                        const nameData = await nameResponse.json();
-                        name = nameData.name || null;
-                    }
-                } catch (error) {
-                    console.warn(`Failed to fetch name for room ${roomId}:`, error);
-                }
-    
-                return { roomId, alias, name };
-            })
-        );
-    
-        // Add the "+" synthetic room
-        roomDetails.push({
-            roomId: "create-room",
-            alias: null,
-            name: "+Create Room",
-        });
-    
-        console.log("Room Details:", roomDetails);
-        setRooms(roomDetails);
-    };
-    
-
-    const fetchPeople = async (token: string, searchTerm: string = "", limit = 10) => {
-        const requestBody = {
-            limit,
-            search_term: searchTerm, // Empty string defaults to searching all users
-        };
-
-        const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/user_directory/search`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch people: ${response.status} ${response.statusText}`);
-        }
-
-        console.log("Response received from User Directory API.");
-        const data = await response.json();
-        setPeople(data.results || []); // Assumes the response contains a `results` array of users.
-    };
 
     const handleTokenExpiry = () => {
         localStorage.removeItem('matrixAccessToken');
         navigate('/chatauth');
+    };
+
+    const handleRoomSelect = async (roomId: string) => {
+        const storedAccessToken = localStorage.getItem('matrixAccessToken');
+        if (storedAccessToken) {
+            try {
+                // Join the room if not already a member
+                await joinRoom(storedAccessToken, synapseBaseUrl, roomId);
+                setSelectedRoom(roomId);
+                localStorage.setItem('selectedRoom', roomId); // Save the selected room to localStorage
+            } catch (error) {
+                setError((error as Error).message);
+            }
+        }
     };
 
     useEffect(() => {
@@ -111,8 +47,15 @@ const ChatPage: React.FC = () => {
             const storedAccessToken = localStorage.getItem('matrixAccessToken');
             if (storedAccessToken) {
                 accessTokenRef.current = storedAccessToken;
-                await fetchPeople(storedAccessToken);
-                await fetchRooms(storedAccessToken);
+                try {
+                    const peopleData = await fetchPeople(storedAccessToken, synapseBaseUrl);
+                    setPeople(peopleData);
+
+                    const roomsData = await fetchRooms(storedAccessToken, synapseBaseUrl);
+                    setRooms(roomsData);
+                } catch (error) {
+                    setError((error as Error).message);
+                }
             } else {
                 navigate('/chatauth');
             }
@@ -120,12 +63,7 @@ const ChatPage: React.FC = () => {
         };
 
         initialize();
-    }, [navigate]);
-
-    const handleRoomSelect = (roomId: string) => {
-        setSelectedRoom(roomId);
-        localStorage.setItem('selectedRoom', roomId); // Save the selected room to localStorage
-    };
+    }, [navigate, synapseBaseUrl]);
 
     useEffect(() => {
         if (!selectedRoom) {
@@ -142,7 +80,9 @@ const ChatPage: React.FC = () => {
     return (
         <div className="chat-page">
             <div className="sidebar">
+
                 <div className="rooms-list">
+                    <h4>Rooms</h4>
                     {rooms.map(({ roomId, alias, name }) => (
                         <div
                             key={roomId}
@@ -156,6 +96,14 @@ const ChatPage: React.FC = () => {
                         </div>
                     ))}
                 </div>
+
+                <div
+                    className="add-room"
+                    onClick={() => navigate('/create-room')}
+                >
+                    Create Room
+                </div>
+
 
                 <div
                     className="add-room"

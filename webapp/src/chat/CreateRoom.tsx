@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../css/CreateRoom.css';
 import { useNavigate } from 'react-router-dom';
+import { fetchRooms, fetchPublicRooms, joinRoom } from './Utils'; // Import joinRoom function
 
 const CreateRoom: React.FC = () => {
     const navigate = useNavigate();
@@ -13,7 +14,6 @@ const CreateRoom: React.FC = () => {
         e.preventDefault(); // Prevent default form submission behavior
 
         const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
-        console.log("Creating Room 1");
 
         const accessToken = localStorage.getItem('matrixAccessToken');
         if (!accessToken) {
@@ -21,7 +21,6 @@ const CreateRoom: React.FC = () => {
             return;
         }
 
-        console.log("Creating Room 2");
         const requestBody = {
             name: roomName,
             topic: roomTopic,
@@ -29,7 +28,7 @@ const CreateRoom: React.FC = () => {
         };
 
         try {
-            const response = await fetch(`${synapseBaseUrl}/_matrix/client/v3/createRoom`, {
+            const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/v3/createRoom`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -51,6 +50,11 @@ const CreateRoom: React.FC = () => {
             console.error("Error creating room:", error);
             setError("Failed to create room. Please try again.");
         }
+    };
+
+    const handleExit = () => {
+        // Navigate to the home page or any other route
+        navigate('/chat');
     };
 
     return (
@@ -81,11 +85,14 @@ const CreateRoom: React.FC = () => {
                         value={roomVisibility}
                         onChange={(e) => setRoomVisibility(e.target.value)}
                     >
-                        <option value="private_chat">Private</option>
                         <option value="public_chat">Public</option>
+                        <option value="private_chat">Private</option>
                     </select>
                 </label>
                 <button type="submit">Create Room</button>
+                <button type="button" onClick={handleExit} className="exit-button">
+                    Exit
+                </button>
             </form>
         </div>
     );

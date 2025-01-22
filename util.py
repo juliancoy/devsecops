@@ -47,8 +47,8 @@ def initializeFiles():
     # Check if we are in a GitHub Actions environment
     in_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
     print(in_github_actions)
-    envFile = os.path.join(here, "env.py")
-    envExampleFile = os.path.join(here, "env.example.py")
+    envFile = os.path.join(here, "editme.py")
+    envExampleFile = os.path.join(here, "editme.example.py")
     if not os.path.isfile(envFile):
         shutil.copy(envExampleFile, envFile)
         print("env.py file did not exist and has been created. Please edit it to update the necessary values, then re-run this script.")

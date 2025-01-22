@@ -226,7 +226,7 @@ cython_debug/
 /.idea/
 .DS_Store
 /gitlab-ce/
-env.py
+editme.py
 /arkavo-production/
 
 /webapp/.idea/inspectionProfiles/Project_Default.xml

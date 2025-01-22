@@ -7,6 +7,7 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   server: {
+    allowedHosts: [`dev.$USER_WEBSITE`, `$USER_WEBSITE`],
     host: '0.0.0.0',
     hmr: false
     /*{

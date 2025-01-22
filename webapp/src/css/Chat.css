@@ -6,18 +6,25 @@
 }
 
 .chat-box {
+    display: flex;
     flex-direction: column;
     height: 100%;
-    box-sizing: border-box;
     background-color: #000;
-    overflow: auto;
+    overflow: hidden; /* Hide overflow to prevent scrollbars */
+}
+
+.input-container {
+    display: flex;
+    padding: 10px;
+    background-color: #242424;
+    height: 20%; /* Fixed height of 20% */
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .responses-container {
-    flex: 1;
-    overflow-y: auto;
+    flex: 1; /* Take up remaining space (80%) */
+    overflow-y: auto; /* Allow scrolling for responses */
     padding: 10px;
-    max-height: calc(100vh - 120px); /* Adjust based on your layout */
 }
 
 .chat-message {
@@ -26,6 +33,11 @@
     margin-bottom: 10px;
     max-width: 80%; /* Prevent messages from being too wide */
     word-wrap: break-word;
+    position: relative; /* For positioning options popup */
+}
+
+.chat-message:hover .message-options {
+    display: flex; /* Show options on hover */
 }
 
 .message-avatar img {
@@ -60,6 +72,12 @@
     color: #007bff; /* Different color for sender name */
 }
 
+.message-timestamp {
+    font-size: 0.8em;
+    color: #888;
+    margin-left: 8px;
+}
+
 .message-body {
     background-color: #333;
     padding: 8px 12px;
@@ -67,10 +85,28 @@
     word-wrap: break-word;
 }
 
-.input-container {
-    display: flex;
-    padding: 10px;
-    background-color: #242424;
+.message-options {
+    display: none; /* Hidden by default */
+    position: absolute;
+    right: 0;
+    top: 0;
+    background-color: #444;
+    border-radius: 4px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.option-button {
+    background-color: #555;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.option-button:hover {
+    background-color: #666;
 }
 
 .chat-input {

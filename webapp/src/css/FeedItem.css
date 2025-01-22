@@ -132,6 +132,7 @@
 /* Content image styling */
 .content-text {
     word-wrap: break-word; /* Allows long words to break */
+    color:#000000;
     overflow-wrap: break-word; /* Alternative for better compatibility */
     white-space: pre-wrap; /* Preserves whitespace and enables wrapping */
     display: block;
