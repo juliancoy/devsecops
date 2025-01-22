@@ -406,7 +406,7 @@ http {
         # Well-known Matrix configuration
         location /.well-known/matrix/server {
             default_type application/json;
-            return 200 '{"m.server": "matrix.app.codecollective.us"}';
+            return 200 '{"m.server": "$SYNAPSE_BASE_URL"}';
         }
     }
 
