@@ -88,29 +88,6 @@ const ExploreRooms: React.FC = () => {
             {/* Local Rooms Section */}
             <h2>Rooms on This Server</h2>
             <ul>
-                {localRooms.map((room) => (
-                    <li
-                        key={room.roomId}
-                        className="room-item"
-                        onClick={() => handleJoinRoom(room.roomId)}
-                    >
-                        <div>
-                            <h2>{room.name || room.alias || 'Unnamed Room'}</h2>
-                            {room.avatarUrl && (
-                                <img
-                                    src={`https://${synapseBaseUrl}/_matrix/media/r0/thumbnail/${room.avatarUrl.replace('mxc://', '')}?width=40&height=40&method=crop`}
-                                    alt={room.name || room.alias}
-                                />
-                            )}
-                            <p>{room.topic || 'No topic provided'}</p>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-
-            {/* Public Rooms Section */}
-            <h2>Public Rooms on Matrix Network</h2>
-            <ul>
                 {publicRooms.map((room) => (
                     <li
                         key={room.room_id}

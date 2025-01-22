@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import '../css/Chat.css';
-import { fetchMessages, sync, Message } from './Utils'; // Import fetchMessages and sync
+import { fetchMessages, sync, fetchUserProfile } from './Utils'; // Import fetchMessages and sync
+
+import { useNavigate } from 'react-router-dom';
 
 interface ChatProps {
     roomId: string;
@@ -12,7 +14,7 @@ interface UserProfile {
 }
 
 export const Chat: React.FC<ChatProps> = ({ roomId }) => {
-    const [conversations, setConversations] = useState<Message[]>([]);
+    const [conversations, setConversations] = useState<any[]>([]);
     const [profiles, setProfiles] = useState<Record<string, UserProfile>>({}); // Store profiles by user ID
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(true);
@@ -20,44 +22,11 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const [sinceToken, setSinceToken] = useState<string | null>(null); // Token for syncing
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
+    const navigate = useNavigate();
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    // Fetch user profile if not already stored
-    const fetchUserProfile = async (userId: string) => {
-        if (profiles[userId]) {
-            return; // Profile already fetched
-        }
-
-        const accessToken = localStorage.getItem('matrixAccessToken');
-        if (!accessToken) {
-            throw new Error('Access token not found.');
-        }
-
-        const profileUrl = `https://${synapseBaseUrl}/_matrix/client/v3/profile/${userId}`;
-        const response = await fetch(profileUrl, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            console.error(`Failed to fetch profile for user ${userId}: ${response.status} ${response.statusText}`);
-            return;
-        }
-
-        const profileData = await response.json();
-        setProfiles((prev) => ({
-            ...prev,
-            [userId]: {
-                displayname: profileData.displayname || userId, // Fallback to user ID if no display name
-                avatarUrl: profileData.avatar_url || null, // Fallback to null if no avatar
-            },
-        }));
     };
 
     // Fetch initial messages and start syncing
@@ -70,7 +39,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
 
                 // Fetch profiles for all unique senders
                 const uniqueSenders = Array.from(new Set(messages.map((msg) => msg.sender)));
-                await Promise.all(uniqueSenders.map((sender) => fetchUserProfile(sender)));
+                await Promise.all(uniqueSenders.map((sender) => fetchUserProfile(sender, synapseBaseUrl,)));
             } catch (err) {
                 setError(`Error fetching messages: ${(err as Error).message}`);
                 setLoading(false);
@@ -90,6 +59,11 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     useEffect(() => {
         let isMounted = true;
 
+        const accessToken = localStorage.getItem('matrixAccessToken');
+        if (!accessToken) {
+            navigate("/chatauth");
+        }
+
         const startSync = async () => {
             try {
                 const { messages, nextToken } = await sync(roomId, synapseBaseUrl, sinceToken);
@@ -104,7 +78,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
 
                     // Fetch profiles for new senders
                     const newSenders = Array.from(new Set(messages.map((msg) => msg.sender)));
-                    await Promise.all(newSenders.map((sender) => fetchUserProfile(sender)));
+                    await Promise.all(newSenders.map((sender) => fetchUserProfile(sender, synapseBaseUrl, accessToken)));
 
                     scrollToBottom();
                 }
@@ -144,8 +118,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
 
         const accessToken = localStorage.getItem('matrixAccessToken');
         if (!accessToken) {
-            setError('Access token not found.');
-            return;
+            navigate("/chatauth");
         }
 
         const txnId = `m${Date.now()}`;

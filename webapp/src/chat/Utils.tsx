@@ -283,7 +283,8 @@ export const fetchUserProfile = async (userId: string, synapseBaseUrl: string, a
         return null;
     }
     console.log("User");
-    console.log(await response.json());
+    const jsonmsg = await response.json();
+    console.log(jsonmsg);
 
-    return await response.json();
+    return jsonmsg;
 };
