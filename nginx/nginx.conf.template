@@ -9,6 +9,18 @@ http {
         return 301 https://$host$request_uri;
     }
 
+    # Default server block to catch undefined subdomains
+    server {
+        listen 80 default_server;
+        listen 443 ssl default_server;
+        server_name _;  # Matches any hostname not defined in other server blocks
+
+        ssl_certificate /keys/fullchain.pem;
+        ssl_certificate_key /keys/privkey.pem;
+
+        return 404;  # Return 404 for undefined subdomains
+    }
+
     server {
         listen 443;
         server_name $USER_WEBSITE;
@@ -29,12 +41,12 @@ http {
         }
 
         # This seperate location is so the no cache policy only applies to the index and nothing else.
-        location @index {
-            root /app;
-            add_header Cache-Control no-cache;
-            expires 0;
-            try_files /index.html /index.html;
-        }
+        #location @index {
+        #    root /app;
+        #    add_header Cache-Control no-cache;
+        #    expires 0;
+        #    try_files /index.html /index.html;
+        #}
     }
 
 
@@ -316,11 +328,14 @@ http {
     }
     
     server {
+
         listen 443 ssl;
         http2 on;
 
+        # For the federation port
+        listen 8448 ssl http2 default_server;
         #listen 8448 ssl http2 default_server;
-        listen [::]:8448 ssl http2 default_server;
+        #listen [::]:8448 ssl http2 default_server;
 
         server_name $SYNAPSE_BASE_URL;
 
@@ -328,7 +343,7 @@ http {
         ssl_certificate_key /keys/privkey.pem;
 
         # Set headers for CORS dynamically
-        add_header Access-Control-Allow-Origin "$http_origin" always;
+        add_header Access-Control-Allow-Origin "*" always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE" always;
         add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
         add_header Access-Control-Expose-Headers "Content-Length, Content-Range" always;
@@ -356,7 +371,8 @@ http {
 
             # Handle preflight requests
             if ($request_method = OPTIONS) {
-                add_header Access-Control-Allow-Origin "$http_origin";
+                add_header Access-Control-Allow-Origin "*";
+                proxy_set_header X-Forwarded-Proto $scheme;  # Add this line
                 add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE";
                 add_header Access-Control-Allow-Headers "Authorization, Content-Type";
                 add_header Content-Type "application/json";
@@ -371,13 +387,15 @@ http {
             proxy_pass http://$NGINX_SYNAPSE_UPSTREAM:8008;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;  # Add this line
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_http_version 1.1;
             proxy_buffering off;
 
             # Handle preflight requests
             if ($request_method = OPTIONS) {
-                add_header Access-Control-Allow-Origin "$http_origin";
+                add_header Access-Control-Allow-Origin "*";
+                proxy_set_header X-Forwarded-Proto $scheme;  # Add this line
                 add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE";
                 add_header Access-Control-Allow-Headers "Authorization, Content-Type";
                 add_header Content-Type "application/json";
