@@ -35,16 +35,18 @@ utils_docker.ensure_network(env.NETWORK_NAME)
 if not os.path.isdir("certs/keys"):
     os.system("cd certs && ./init-temp-keys.sh")
 
-# --- WEB APP ---
-# theoretically has no dependencies
-if "webapp" in env.SERVICES_TO_RUN:
-    utils_docker.run_container(env.webapp)
-
 # --- KEYCLOAK ---
 if "keycloak" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.keycloakdb)
     utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="keycloakdb:5432")
     utils_docker.run_container(env.keycloak)
+
+# --- WEB APP ---
+# theoretically has no dependencies
+if "webapp" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.webapp)
+if "webapp_build" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.webapp_build)
 
 # --- NGINX ---
 if "nginx" in env.SERVICES_TO_RUN:
@@ -72,19 +74,21 @@ if "synapse" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.synapsedb)
     utils_docker.wait_for_db(network=env.NETWORK_NAME, db_url="synapsedb:5432")
     utils_docker.run_container(env.synapse)
+
 if "element" in env.SERVICES_TO_RUN:
     # --- Element web app ---
     utils_docker.run_container(env.element)
 
-# --- Discourse ---
-if "discourse" in env.SERVICES_TO_RUN:
-    utils_docker.run_container(env.discourse)
-
 # --- OLLAMA !!! ---
 if "ollama" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.ollama)
-    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud"])
+    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud", "phi3", "deepseek-coder:6.7b"],env.NETWORK_NAME)
 
 # --- BLUESKY PDS --- 
 if "bluesky" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.bluesky)
+    utils_docker.run_container(env.bluesky_bridge)
+    utils_docker.run_container(env.bsky_fyp)
+
+if "sglang" in env.SERVICES_TO_RUN:
+    utils_docker.run_container(env.sglang)
