@@ -13,9 +13,9 @@ SERVICES_TO_RUN = [
     "opentdf",     # E2EE Solution
     "AICouncil",   # Agentic Solution in Python
     "nginx",       # Reverse proxy for Reactor and SSH
-    "ollama",      # LLM Host
+    #"ollama",      # LLM Host
     #"sglang",      # LLM Host
-    "bluesky",     # Social Media - PDS for Bluesky
+    #"bluesky",     # Social Media - PDS for Bluesky
     "synapse",     # Social Media - Matrix Server
     "element",     # Social Media - Matrix Client
     "webapp",      # Social Media - Our Client
