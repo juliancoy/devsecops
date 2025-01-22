@@ -18,7 +18,7 @@ func main() {
 	router := gin.Default()
 
 	// Initialize IRC and set up its routes
-	irc_init(router)
+	//irc_init(router)
 
 	// Define a group for routes under the /org base path
 	orgRoutes := router.Group("/")

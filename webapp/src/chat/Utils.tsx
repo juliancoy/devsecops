@@ -64,7 +64,7 @@ export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
             return { roomId, alias, name, avatarUrl };
         })
     );
-
+    
     console.log("Room Details:", roomDetails);
     return roomDetails;
 };
@@ -93,70 +93,15 @@ export const fetchPeople = async (token: string, synapseBaseUrl: string, searchT
     return data.results || []; // Assumes the response contains a `results` array of users.
 };
 
-export const sync = async (
-    roomId: string,
-    synapseBaseUrl: string,
-    sinceToken?: string,
-    timeout: number = 30000
-): Promise<{ messages: any[]; nextToken: string | null }> => {
-    const accessToken = localStorage.getItem('matrixAccessToken');
-    if (!accessToken) {
-        throw new Error('Access token not found.');
-    }
+// Utils.tsx
 
-    // Build the filter object
-    const filter = {
-        room: {
-            timeline: {
-                limit: 50, // Limit the number of events returned
-                types: ['m.room.message'], // Only fetch message events
-            },
-            include_leave: false, // Exclude rooms the user has left
-        },
-    };
-
-    // Build the sync URL
-    const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
-    syncUrl.searchParams.set('timeout', timeout.toString());
-    if (sinceToken) {
-        syncUrl.searchParams.set('since', sinceToken); // Use the since token to fetch only new messages
-    }
-    syncUrl.searchParams.set('filter', JSON.stringify(filter)); // Encode filter only once
-
-    const response = await fetch(syncUrl.toString(), {
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to sync: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Extract the next sync token
-    const nextToken = data.next_batch || null;
-
-    // Extract messages for the specified room
-    const roomData = data.rooms?.join?.[roomId];
-    if (!roomData || !roomData.timeline?.events) {
-        console.log('No new timeline events found for this room.');
-        return { messages: [], nextToken };
-    }
-
-    // Filter and map message events
-    const messages = roomData.timeline.events
-        .filter((event: any) => event.type === 'm.room.message' && event.content);
-
-    console.log(messages);
-
-    // Sort messages by timestamp
-    messages.sort((a: any, b: any) => (a.origin_server_ts || 0) - (b.origin_server_ts || 0));
-
-    return { messages, nextToken };
-};
+export interface Message {
+    sender: string;
+    body: string;
+    avatarUrl?: string;
+    timestamp?: number;
+    eventId?: string; // Include event ID for deduplication
+}
 
 export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
     const accessToken = localStorage.getItem('matrixAccessToken');
@@ -164,25 +109,17 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
         throw new Error('Access token not found.');
     }
 
-    // Build the filter object
-    const filter = {
-        room: {
-            timeline: {
-                limit: 50, // Limit the number of events returned
+    const response = await fetch(
+        `https://${synapseBaseUrl}/_matrix/client/v3/sync?filter=${encodeURIComponent(
+            JSON.stringify({ room: { timeline: { limit: 50 } } })
+        )}`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
             },
-        },
-    };
-
-    // Build the sync URL
-    const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
-    syncUrl.searchParams.set('filter', JSON.stringify(filter));
-
-    const response = await fetch(syncUrl.toString(), {
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-    });
+        }
+    );
 
     if (!response.ok) {
         throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
@@ -195,14 +132,18 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
         console.log('No timeline events found for this room.');
         return [];
     }
-    console.log(roomData);
 
-    // Filter and map message events
     const messages = roomData.timeline.events
-        .filter((event: any) => event.type === 'm.room.message');
+        .filter((event: any) => event.type === 'm.room.message')
+        .map((event: any) => ({
+            sender: event.sender,
+            body: event.content?.body || '[Unknown Message]',
+            avatarUrl: event.content?.avatar_url || null,
+            timestamp: event.origin_server_ts || 0,
+            eventId: event.event_id, // Include event ID for deduplication
+        }));
 
-    // Sort messages by timestamp
-    messages.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+    messages.sort((a: Message, b: Message) => (a.timestamp || 0) - (b.timestamp || 0));
 
     return messages;
 };
@@ -267,23 +208,4 @@ export const joinRoom = async (accessToken: string, synapseBaseUrl: string, room
     }
 
     return response.json();
-};
-
-export const fetchUserProfile = async (userId: string, synapseBaseUrl: string, accessToken: string) => {
-    const profileUrl = `https://${synapseBaseUrl}/_matrix/client/v3/profile/${userId}`;
-    const response = await fetch(profileUrl, {
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        console.error(`Failed to fetch profile for user ${userId}: ${response.status} ${response.statusText}`);
-        return null;
-    }
-    console.log("User");
-    console.log(await response.json());
-
-    return await response.json();
 };
