@@ -52,6 +52,11 @@ const CreateRoom: React.FC = () => {
         }
     };
 
+    const handleExit = () => {
+        // Navigate to the home page or any other route
+        navigate('/chat');
+    };
+
     return (
         <div className="create-room-container">
             <h2>Create a Room</h2>
@@ -85,6 +90,9 @@ const CreateRoom: React.FC = () => {
                     </select>
                 </label>
                 <button type="submit">Create Room</button>
+                <button type="button" onClick={handleExit} className="exit-button">
+                    Exit
+                </button>
             </form>
         </div>
     );

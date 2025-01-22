@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from atproto import Client, models
 import json
-import os
+import osa
 import pickle
 import time
 import json
@@ -11,7 +11,13 @@ feed_dict = {}
 last_updated = {}  # Timestamp of the last update
 update_interval = 300  # 5 minutes in seconds
 
+
+# Initialize the client
+client = Client()
+client.login(os.getenv("BLUESKY_HANDLE"), os.getenv("BLUESKY_PASSWORD"))
+
 def serve_feed(did = "did:plc:y7crv2yh74s7qhmtx3mvbgv5", feed = "art-new"):
+    global client
     global last_updated
     global feed_dict
 
@@ -23,9 +29,6 @@ def serve_feed(did = "did:plc:y7crv2yh74s7qhmtx3mvbgv5", feed = "art-new"):
         return json.dumps(feed_dict[feed], indent=2)
 
     app.logger.info(f"Updating feed at {current_time}")
-    # Initialize the client
-    client = Client()
-    client.login(os.getenv("BLUESKY_HANDLE"), os.getenv("BLUESKY_PASSWORD"))
 
     # Parse the feed URI
     #algorithm = f"at://{did}/app.bsky.feed.generator/{feed}"
@@ -50,7 +53,6 @@ def serve_feed(did = "did:plc:y7crv2yh74s7qhmtx3mvbgv5", feed = "art-new"):
 @app.route("/", methods=["GET"])
 def serve_art_feed():
     return serve_feed()
-
 
 #https://bsky.app/profile/feristalj.bsky.social/feed/aaakapfwax3jm
 @app.route("/video", methods=["GET"])
