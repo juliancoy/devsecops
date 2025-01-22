@@ -25,7 +25,7 @@ log_config: "/data/$BRAND_NAME.log.config"
 # Federation settings
 federation_domain_whitelist: []
 allow_public_rooms_without_auth: true
-allow_public_rooms_over_federation: false
+allow_public_rooms_over_federation: true
 
 # Room settings
 # encryption_enabled_by_default_for_room_type: "all"

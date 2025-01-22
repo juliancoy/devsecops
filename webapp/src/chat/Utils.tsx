@@ -1,18 +1,23 @@
 // Utils.tsx
 
+import { json } from "stream/consumers";
+
 export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
+    // Fetch the list of joined rooms
     const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) throw new Error('Failed to fetch rooms');
     const data = await response.json();
+    console.log(JSON.stringify(data));
 
-    // Fetch room names and aliases for each room
+    // Fetch room details (name, alias, and avatar) for each room
     const roomDetails = await Promise.all(
         data.joined_rooms.map(async (roomId: string) => {
             let alias: string | null = null;
             let name: string | null = null;
+            let avatarUrl: string | null = null;
 
             // Fetch room aliases
             try {
@@ -30,7 +35,7 @@ export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
 
             // Fetch room name
             try {
-                const nameResponse = await fetch(`${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/state/m.room.name`, {
+                const nameResponse = await fetch(`https://${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/state/m.room.name`, {
                     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 });
 
@@ -42,21 +47,27 @@ export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
                 console.warn(`Failed to fetch name for room ${roomId}:`, error);
             }
 
-            return { roomId, alias, name };
+            // Fetch room avatar
+            try {
+                const avatarResponse = await fetch(`https://${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/state/m.room.avatar`, {
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                });
+
+                if (avatarResponse.ok) {
+                    const avatarData = await avatarResponse.json();
+                    avatarUrl = avatarData.url || null;
+                }
+            } catch (error) {
+                console.warn(`Failed to fetch avatar for room ${roomId}:`, error);
+            }
+
+            return { roomId, alias, name, avatarUrl };
         })
     );
-
-    // Add the "+" synthetic room
-    roomDetails.push({
-        roomId: "create-room",
-        alias: null,
-        name: "+Create Room",
-    });
-
+    
     console.log("Room Details:", roomDetails);
     return roomDetails;
 };
-
 
 export const fetchPeople = async (token: string, synapseBaseUrl: string, searchTerm: string = "", limit = 10) => {
     const requestBody = {
@@ -137,41 +148,28 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
     return messages;
 };
 
-export const fetchFederatedPublicRooms = async (token: string, synapseBaseUrl: string) => {
+export const fetchPublicRooms = async (
+    token: string,
+    synapseBaseUrl: string,
+    federated: boolean = false
+) => {
     try {
-        const params = new URLSearchParams({
-            'include_all_networks': 'true'  // This includes federated rooms
-        });
-        
-        const response = await fetch(
-            `https://${synapseBaseUrl}/_matrix/client/v3/publicRooms?${params.toString()}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
+        // Set up query parameters
+        const params = new URLSearchParams();
 
-        if (!response.ok) throw new Error('Failed to fetch federated public rooms');
-        const data = await response.json();
-        return data.chunk || [];
-    } catch (err) {
-        console.error('Error fetching federated public rooms:', err);
-        throw err;
-    }
-};
+        // Add the `server` parameter only for local search
+        if (!federated) {
+            params.append('server', synapseBaseUrl);
+        }
 
-export const fetchLocalPublicRooms = async (token: string, synapseBaseUrl: string) => {
-    try {
+        // Add the `include_all_networks` parameter for federated search
+        params.append('include_all_networks', federated ? 'true' : 'false');
 
-        const params = new URLSearchParams({
-            'server': synapseBaseUrl,
-        });
-
+        // Construct the request URL
         const requestUrl = `https://${synapseBaseUrl}/_matrix/client/v3/publicRooms?${params.toString()}`;
         console.log('Request URL:', requestUrl);
 
+        // Fetch public rooms
         const response = await fetch(requestUrl, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -179,16 +177,35 @@ export const fetchLocalPublicRooms = async (token: string, synapseBaseUrl: strin
             },
         });
 
+        // Handle errors
         if (!response.ok) {
             const responseText = await response.text(); // Log the raw response
             console.error('Error response:', responseText);
-            throw new Error(`Failed to fetch local public rooms: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch public rooms: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json(); // Parse JSON
+        // Parse and return the room data
+        const data = await response.json();
         return data.chunk || [];
     } catch (err) {
-        console.error('Error fetching local public rooms:', err);
+        console.error('Error fetching public rooms:', err);
         throw err;
     }
+};
+
+export const joinRoom = async (accessToken: string, synapseBaseUrl: string, roomId: string) => {
+    const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/join/${encodeURIComponent(roomId)}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to join room: ${response.statusText}`);
+    }
+
+    return response.json();
 };

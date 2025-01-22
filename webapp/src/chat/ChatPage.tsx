@@ -5,7 +5,7 @@ import '../css/ChatPage.css';
 import { useKeycloak } from '@react-keycloak/web';
 import { useNavigate } from 'react-router-dom';
 import { Chat } from './Chat';
-import { fetchRooms, fetchPeople } from './Utils'; // Import the functions
+import { fetchRooms, fetchPeople, joinRoom } from './Utils'; // Import joinRoom function
 
 const ChatPage: React.FC = () => {
     const { keycloak, initialized } = useKeycloak();
@@ -22,9 +22,29 @@ const ChatPage: React.FC = () => {
     const accessTokenRef = useRef<string | null>(null);
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
+    // Define pinned rooms
+    const pinnedRooms = [
+        { roomId: '!OfJNzyMEhVoxCBBcSV:matrix.org', alias: 'Room 1' },
+        { roomId: '!NRTafywrMGISLMcipa:matrix.org', alias: 'Room 2' }
+    ];
+
     const handleTokenExpiry = () => {
         localStorage.removeItem('matrixAccessToken');
         navigate('/chatauth');
+    };
+
+    const handleRoomSelect = async (roomId: string) => {
+        const storedAccessToken = localStorage.getItem('matrixAccessToken');
+        if (storedAccessToken) {
+            try {
+                // Join the room if not already a member
+                await joinRoom(storedAccessToken, synapseBaseUrl, roomId);
+                setSelectedRoom(roomId);
+                localStorage.setItem('selectedRoom', roomId); // Save the selected room to localStorage
+            } catch (error) {
+                setError((error as Error).message);
+            }
+        }
     };
 
     useEffect(() => {
@@ -39,7 +59,7 @@ const ChatPage: React.FC = () => {
                     const roomsData = await fetchRooms(storedAccessToken, synapseBaseUrl);
                     setRooms(roomsData);
                 } catch (error) {
-                    setError(error.message);
+                    setError((error as Error).message);
                 }
             } else {
                 navigate('/chatauth');
@@ -49,11 +69,6 @@ const ChatPage: React.FC = () => {
 
         initialize();
     }, [navigate, synapseBaseUrl]);
-
-    const handleRoomSelect = (roomId: string) => {
-        setSelectedRoom(roomId);
-        localStorage.setItem('selectedRoom', roomId); // Save the selected room to localStorage
-    };
 
     useEffect(() => {
         if (!selectedRoom) {
@@ -70,7 +85,24 @@ const ChatPage: React.FC = () => {
     return (
         <div className="chat-page">
             <div className="sidebar">
+                <div className="pinned-rooms">
+                    <h4>Pinned Rooms</h4>
+                    {pinnedRooms.map(({ roomId, alias }) => (
+                        <div
+                            key={roomId}
+                            className={`room-item ${selectedRoom === roomId ? 'selected' : ''}`}
+                            onClick={() => handleRoomSelect(roomId)}
+                        >
+                            <div className="room-avatar">
+                                {alias ? alias[0].toUpperCase() : roomId[0].toUpperCase()}
+                            </div>
+                            <span>{alias || roomId}</span>
+                        </div>
+                    ))}
+                </div>
+
                 <div className="rooms-list">
+                    <h4>Rooms</h4>
                     {rooms.map(({ roomId, alias, name }) => (
                         <div
                             key={roomId}
@@ -84,6 +116,14 @@ const ChatPage: React.FC = () => {
                         </div>
                     ))}
                 </div>
+
+                <div
+                    className="add-room"
+                    onClick={() => navigate('/create-room')}
+                >
+                    Create Room
+                </div>
+
 
                 <div
                     className="add-room"
