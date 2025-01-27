@@ -58,7 +58,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
 
         try {
             await fetch(
-                `${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/send/m.room.message/${txnId}`,
+                `https://${synapseBaseUrl}/_matrix/client/v3/rooms/${roomId}/send/m.room.message/${txnId}`,
                 {
                     method: 'PUT',
                     headers: {
