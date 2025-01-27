@@ -1,3 +1,5 @@
+[![Matrix Room](https://img.shields.io/badge/Matrix-Join%20Chat-orange)](https://matrix.to/#/!NRTafywrMGISLMcipa:matrix.org?via=matrix.org)
+
 # Arkavo DevSecOps
 ## The Official GitHub Repository for Arkavo's Web Backend and React App
 DevSecOps LangGraph
