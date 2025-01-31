@@ -82,7 +82,8 @@ if "element" in env.SERVICES_TO_RUN:
 # --- OLLAMA !!! ---
 if "ollama" in env.SERVICES_TO_RUN:
     utils_docker.run_container(env.ollama)
-    utils_docker.pullModels(["llama3.2", "ALIENTELLIGENCE/sigmundfreud", "phi3", "deepseek-coder:6.7b"],env.NETWORK_NAME)
+    utils_docker.pullModels(env.MODELS_TO_PULL,env.NETWORK_NAME)
+    utils_docker.run_container(env.deepseek_janus)
 
 # --- BLUESKY PDS --- 
 if "bluesky" in env.SERVICES_TO_RUN:

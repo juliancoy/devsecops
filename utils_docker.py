@@ -377,6 +377,7 @@ def generateProdKeys(env):
 
 
 def model_exists(model_name, network):
+    print(f"Checking for model {model_name}")
     # Run the container and capture the result
     result = run_container(
         dict(
@@ -397,7 +398,7 @@ def model_exists(model_name, network):
     
     # Decode the bytes object to a string
     response_json = result.decode('utf-8')
-
+    
     # Parse the JSON response
     try:
         response = json.loads(response_json)

@@ -253,3 +253,4 @@ webapp/index.html
 webapp/src/css/global.css
 webapp/vite.config.ts
 deepseek
+huggingface
