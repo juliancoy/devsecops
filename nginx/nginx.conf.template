@@ -245,29 +245,51 @@ http {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
     }
-
-
+    
     server {
         listen 443 ssl;
-        http2 on;
-
         server_name $OLLAMA_BASE_URL;
 
         ssl_certificate /keys/fullchain.pem;
         ssl_certificate_key /keys/privkey.pem;
-        
-        # Allow only specific chat API routes
+
+        set $NGINX_OLLAMA_UPSTREAM "ollama";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_hide_header Access-Control-Allow-Origin;
+
+        # Set CORS headers only here
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+
+        # Allow chat-related API calls
         location /api/generate {
-            set $NGINX_OLLAMA_UPSTREAM "ollama";
             proxy_pass http://$NGINX_OLLAMA_UPSTREAM:11434;
 
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
-            proxy_connect_timeout 5s;
-            proxy_read_timeout 60s;
-            proxy_send_timeout 60s;
+            if ($request_method = OPTIONS) {
+                return 204;
+            }
+        }
+
+        # Allow fetching model tags
+        location /api/tags {
+            proxy_pass http://$NGINX_OLLAMA_UPSTREAM:11434;
+
+            if ($request_method = OPTIONS) {
+                return 204;
+            }
+        }
+
+        # Allow fetching model details
+        location /api/show {
+            proxy_pass http://$NGINX_OLLAMA_UPSTREAM:11434;
+
+            if ($request_method = OPTIONS) {
+                return 204;
+            }
         }
 
         # Block everything else from the public internet
