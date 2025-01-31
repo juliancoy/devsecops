@@ -28,10 +28,11 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                     headers: { 'Content-Type': 'application/json' },
                 });
                 const data = await response.json();
-                console.log(data)
+                console.log(data);
+                console.log(data.models.map((model: { name: string }) => model.name));
                 if (data.models) {
                     const modelNames = data.models.map((model: { name: string }) => model.name);
-                    setModels(['/image', '/llama3.2', ...modelNames]);
+                    setModels((prevModels) => ['deepseek:janus', ...modelNames]);
                 }
             } catch (error) {
                 console.error('Failed to fetch Ollama models:', error);
@@ -148,22 +149,22 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             }
         }
     };
-
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const input = e.target.value;
         setPrompt(input);
-
+    
         if (input.startsWith('/')) {
+            const inputWithoutSlash = input.slice(1); // Remove the leading '/'
             const matches = models.filter((model) =>
-                model.toLowerCase().startsWith(input.toLowerCase())
+                model.toLowerCase().startsWith(inputWithoutSlash.toLowerCase())
             );
             setFilteredSuggestions(matches);
             setSelectedIndex(matches.length > 0 ? 0 : -1);
-        } else {
-            setFilteredSuggestions([]);
-            setSelectedIndex(-1);
         }
     };
+    useEffect(() => {
+        console.log('Models state updated:', models);
+    }, [models]);
 
     const formatTimestamp = (timestamp: number): string => {
         return new Date(timestamp).toLocaleTimeString([], {
@@ -199,15 +200,6 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                     <div ref={messagesEndRef} />
                 </div>
                 <div className="input-container">
-                    <textarea
-                        ref={inputRef}
-                        className="chat-input"
-                        value={prompt}
-                        onChange={handleChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Enter your message"
-                        rows={3}
-                    />
                     {filteredSuggestions.length > 0 && (
                         <ul className="autocomplete-list">
                             {filteredSuggestions.map((suggestion, index) => (
@@ -224,6 +216,15 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                             ))}
                         </ul>
                     )}
+                    <textarea
+                        ref={inputRef}
+                        className="chat-input"
+                        value={prompt}
+                        onChange={handleChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter your message"
+                        rows={3}
+                    />
                     <button className="send-button" onClick={handleSubmit}>
                         Send
                     </button>

@@ -43,6 +43,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => 
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/create-room" element={<CreateRoom />} />
                 <Route path="/events" element={<Events />} />
+                <Route path="/feed" element={<Feed />} />
                 <Route path="/navbar" element={<Navbar />} />
                 <Route path="/room/:roomId" element={<Room />} />
                 <Route path="/video" element={<VideoFeed />} />
