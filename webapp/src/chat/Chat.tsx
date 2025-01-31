@@ -1,5 +1,3 @@
-// Chat.tsx
-
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import '../css/Chat.css';
 import { fetchMessages, Message } from './Utils'; // Import fetchMessages
@@ -20,26 +18,53 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+    const loadMessages = async () => {
+        try {
+            const newMessages = await fetchMessages(roomId, synapseBaseUrl);
+    
+            // Skip if no new messages
+            if (newMessages.length === 0) {
+                console.log('No new messages found.');
+                return;
+            }
+    
+            // Use functional update to ensure we work with the latest state
+            setConversations((prevConversations) => {
+                const seenEventIds = new Set(prevConversations.map((message) => message.eventId));
+                const uniqueNewMessages = newMessages.filter(
+                    (message) => message && message.eventId && !seenEventIds.has(message.eventId)
+                );
+    
+                // Merge and deduplicate
+                return [...prevConversations, ...uniqueNewMessages];
+            });
+    
+            setLoading(false);
+        } catch (err) {
+            setError(`Error fetching messages: ${(err as Error).message}`);
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const loadMessages = async () => {
-            try {
-                const messages = await fetchMessages(roomId, synapseBaseUrl);
-                setConversations(messages);
-                setLoading(false);
-            } catch (err) {
-                setError(`Error fetching messages: ${(err as Error).message}`);
-                setLoading(false);
-            }
-        };
-
         // Reset state and fetch messages when room changes
-        setConversations([]);
+        setConversations([]); // Only reset when roomId changes
         setLoading(true);
         setError(null);
         loadMessages();
         scrollToBottom();
     }, [roomId, synapseBaseUrl]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!loading) {
+                loadMessages();
+                console.log("Loaded messages");
+            }
+        }, 3000); // Adjust interval as needed
+    
+        return () => clearInterval(interval);
+    }, [roomId, synapseBaseUrl, loading]);
 
     useEffect(() => {
         scrollToBottom(); // Scroll to the bottom on new messages
@@ -71,7 +96,12 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                     }),
                 }
             );
+
             setPrompt('');
+
+            // Fetch messages immediately after sending
+            loadMessages();
+            scrollToBottom();
         } catch (err) {
             setError(`Failed to send message: ${(err as Error).message}`);
         }
@@ -92,7 +122,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             <div className="chat-box">
                 <div className="responses-container">
                     {conversations.map((message, index) => (
-                        <div key={index} className="chat-message">
+                        <div key={message.eventId} className="chat-message">
                             <div className="message-avatar">
                                 {message.avatarUrl ? (
                                     <img src={`${message.avatarUrl}`} alt="Avatar" />

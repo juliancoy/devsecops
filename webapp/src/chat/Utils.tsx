@@ -103,33 +103,43 @@ export interface Message {
     eventId?: string; // Include event ID for deduplication
 }
 
+var since = null;
 export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
     const accessToken = localStorage.getItem('matrixAccessToken');
     if (!accessToken) {
         throw new Error('Access token not found.');
     }
 
-    const response = await fetch(
-        `https://${synapseBaseUrl}/_matrix/client/v3/sync?filter=${encodeURIComponent(
-            JSON.stringify({ room: { timeline: { limit: 50 } } })
-        )}`,
-        {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
-        }
-    );
+    // Retrieve 'since' token from local storage if available
+    const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
+    
+    // Add 'since' parameter if available for incremental sync
+    if (since) {
+        syncUrl.searchParams.append('since', since);
+    }
+    //syncUrl.searchParams.append('timeout', '30000'); // Long polling timeout
+    //syncUrl.searchParams.append('filter', encodeURIComponent(JSON.stringify({ room: { timeline: { limit: 50 } } })));
+
+    const response = await fetch(syncUrl.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+    });
 
     if (!response.ok) {
         throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+    
+    // Save the next_batch token for the next sync request
+    if (data.next_batch) {
+        since = data.next_batch;
+    }
+    
     const roomData = data.rooms?.join?.[roomId];
-
     if (!roomData || !roomData.timeline?.events) {
-        console.log('No timeline events found for this room.');
         return [];
     }
 
@@ -143,8 +153,7 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
             eventId: event.event_id, // Include event ID for deduplication
         }));
 
-    messages.sort((a: Message, b: Message) => (a.timestamp || 0) - (b.timestamp || 0));
-
+    messages.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
     return messages;
 };
 
