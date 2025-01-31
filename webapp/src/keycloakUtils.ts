@@ -69,4 +69,5 @@ export const loginAndFetchProfile = async (
 export const logoutAndClearProfile = (keycloak: KeycloakInstance): void => {
     keycloak.logout();
     localStorage.removeItem('userProfile');
+    localStorage.removeItem('matrixAccessToken');
 };

@@ -11,9 +11,34 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [models, setModels] = useState<string[]>([]);
+    const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+    // Fetch available models from Ollama
+    useEffect(() => {
+        const fetchModels = async () => {
+            try {
+                const response = await fetch('https://ollama.app.codecollective.us/api/tags', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await response.json();
+                console.log(data)
+                if (data.models) {
+                    const modelNames = data.models.map((model: { name: string }) => model.name);
+                    setModels(['/image', '/llama3.2', ...modelNames]);
+                }
+            } catch (error) {
+                console.error('Failed to fetch Ollama models:', error);
+            }
+        };
+        fetchModels();
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,19 +47,15 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const loadMessages = async (partial = false) => {
         try {
             const newMessages = await fetchMessages(roomId, synapseBaseUrl, partial);
+            if (newMessages.length === 0) return;
 
-            if (newMessages.length === 0) {
-                console.log('No new messages found.');
-                return;
-            }
-
-            setConversations((prevConversations) => {
-                const seenEventIds = new Set(prevConversations.map((message) => message.eventId));
+            setConversations((prev) => {
+                const seenEventIds = new Set(prev.map((message) => message.eventId));
                 const uniqueNewMessages = newMessages.filter(
                     (message) => message && message.eventId && !seenEventIds.has(message.eventId)
                 );
 
-                return [...prevConversations, ...uniqueNewMessages];
+                return [...prev, ...uniqueNewMessages];
             });
 
             setLoading(false);
@@ -45,22 +66,17 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     };
 
     useEffect(() => {
-        console.log("Room changed. Loading messages");
         setConversations([]);
         setLoading(true);
         setError(null);
-        loadMessages(false); // Full sync when the room changes
+        loadMessages(false);
         scrollToBottom();
     }, [roomId, synapseBaseUrl]);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!loading) {
-                loadMessages(true); // Always perform a partial sync in the interval
-                console.log("Loaded messages");
-            }
+            if (!loading) loadMessages(true);
         }, 1000);
-
         return () => clearInterval(interval);
     }, [roomId, synapseBaseUrl, loading]);
 
@@ -96,9 +112,11 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             );
 
             setPrompt('');
+            setFilteredSuggestions([]);
+            setSelectedIndex(-1);
             setTimeout(() => {
-                loadMessages(true); // Perform a partial sync after a short delay
-            }, 500); // Wait 500ms for the server to process the message
+                loadMessages(true);
+            }, 500);
             scrollToBottom();
         } catch (err) {
             setError(`Failed to send message: ${(err as Error).message}`);
@@ -108,13 +126,51 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSubmit();
+            if (selectedIndex >= 0 && filteredSuggestions.length > 0) {
+                setPrompt(filteredSuggestions[selectedIndex] + ' ');
+                setFilteredSuggestions([]);
+                setSelectedIndex(-1);
+            } else {
+                handleSubmit();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex((prev) => (prev < filteredSuggestions.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            if (selectedIndex >= 0 && filteredSuggestions.length > 0) {
+                setPrompt(filteredSuggestions[selectedIndex] + ' ');
+                setFilteredSuggestions([]);
+                setSelectedIndex(-1);
+            }
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const input = e.target.value;
+        setPrompt(input);
+
+        if (input.startsWith('/')) {
+            const matches = models.filter((model) =>
+                model.toLowerCase().startsWith(input.toLowerCase())
+            );
+            setFilteredSuggestions(matches);
+            setSelectedIndex(matches.length > 0 ? 0 : -1);
+        } else {
+            setFilteredSuggestions([]);
+            setSelectedIndex(-1);
         }
     };
 
     const formatTimestamp = (timestamp: number): string => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
     };
 
     if (loading) return <div>Loading messages...</div>;
@@ -127,11 +183,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                     {conversations.map((message) => (
                         <div key={message.eventId} className="chat-message">
                             <div className="message-avatar">
-                                {message.avatarUrl ? (
-                                    <img src="/user_3626098.png" alt="Avatar" />
-                                ) : (
-                                    <img src="/user_3626098.png" alt="Avatar" />
-                                )}
+                                <img src="/user_3626098.png" alt="Avatar" />
                             </div>
                             <div className="message-content">
                                 <div className="message-sender">
@@ -148,13 +200,30 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                 </div>
                 <div className="input-container">
                     <textarea
+                        ref={inputRef}
                         className="chat-input"
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={handleChange}
                         onKeyDown={handleKeyDown}
                         placeholder="Enter your message"
                         rows={3}
                     />
+                    {filteredSuggestions.length > 0 && (
+                        <ul className="autocomplete-list">
+                            {filteredSuggestions.map((suggestion, index) => (
+                                <li
+                                    key={suggestion}
+                                    className={index === selectedIndex ? 'selected' : ''}
+                                    onMouseDown={() => {
+                                        setPrompt(suggestion + ' ');
+                                        setFilteredSuggestions([]);
+                                    }}
+                                >
+                                    {suggestion}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                     <button className="send-button" onClick={handleSubmit}>
                         Send
                     </button>
