@@ -2,6 +2,19 @@
 
 import { json } from "stream/consumers";
 
+export const fetchUserProfile = async (userId: string, token: string, synapseBaseUrl: string) => {
+    const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/v3/profile/${userId}`, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch user profile');
+    const data = await response.json();
+    return {
+        displayName: data.displayname || userId,
+        avatarUrl: data.avatar_url || null,
+    };
+};
+
 export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
     // Fetch the list of joined rooms
     const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
@@ -99,8 +112,9 @@ export interface Message {
     sender: string;
     body: string;
     avatarUrl?: string;
+    displayName?: string;
     timestamp?: number;
-    eventId?: string; // Include event ID for deduplication
+    eventId?: string;
 }
 
 var since = null;
@@ -110,15 +124,11 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
         throw new Error('Access token not found.');
     }
 
-    // Retrieve 'since' token from local storage if available
     const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
     
-    // Add 'since' parameter if available for incremental sync
     if (since) {
         syncUrl.searchParams.append('since', since);
     }
-    //syncUrl.searchParams.append('timeout', '30000'); // Long polling timeout
-    //syncUrl.searchParams.append('filter', encodeURIComponent(JSON.stringify({ room: { timeline: { limit: 50 } } })));
 
     const response = await fetch(syncUrl.toString(), {
         headers: {
@@ -133,7 +143,6 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
 
     const data = await response.json();
     
-    // Save the next_batch token for the next sync request
     if (data.next_batch) {
         since = data.next_batch;
     }
@@ -143,15 +152,21 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
         return [];
     }
 
-    const messages = roomData.timeline.events
-        .filter((event: any) => event.type === 'm.room.message')
-        .map((event: any) => ({
-            sender: event.sender,
-            body: event.content?.body || '[Unknown Message]',
-            avatarUrl: event.content?.avatar_url || null,
-            timestamp: event.origin_server_ts || 0,
-            eventId: event.event_id, // Include event ID for deduplication
-        }));
+    const messages = await Promise.all(
+        roomData.timeline.events
+            .filter((event: any) => event.type === 'm.room.message')
+            .map(async (event: any) => {
+                const profile = await fetchUserProfile(event.sender, accessToken, synapseBaseUrl);
+                return {
+                    sender: event.sender,
+                    body: event.content?.body || '[Unknown Message]',
+                    avatarUrl: profile.avatarUrl,
+                    displayName: profile.displayName,
+                    timestamp: event.origin_server_ts || 0,
+                    eventId: event.event_id,
+                };
+            })
+    );
 
     messages.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
     return messages;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import '../css/Chat.css';
-import { fetchMessages, Message } from './Utils'; // Import fetchMessages
+import { fetchMessages, Message } from './Utils';
 
 interface ChatProps {
     roomId: string;
@@ -18,27 +18,25 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+
     const loadMessages = async () => {
         try {
             const newMessages = await fetchMessages(roomId, synapseBaseUrl);
-    
-            // Skip if no new messages
+
             if (newMessages.length === 0) {
                 console.log('No new messages found.');
                 return;
             }
-    
-            // Use functional update to ensure we work with the latest state
+
             setConversations((prevConversations) => {
                 const seenEventIds = new Set(prevConversations.map((message) => message.eventId));
                 const uniqueNewMessages = newMessages.filter(
                     (message) => message && message.eventId && !seenEventIds.has(message.eventId)
                 );
-    
-                // Merge and deduplicate
+
                 return [...prevConversations, ...uniqueNewMessages];
             });
-    
+
             setLoading(false);
         } catch (err) {
             setError(`Error fetching messages: ${(err as Error).message}`);
@@ -47,8 +45,7 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     };
 
     useEffect(() => {
-        // Reset state and fetch messages when room changes
-        setConversations([]); // Only reset when roomId changes
+        setConversations([]);
         setLoading(true);
         setError(null);
         loadMessages();
@@ -61,13 +58,13 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                 loadMessages();
                 console.log("Loaded messages");
             }
-        }, 3000); // Adjust interval as needed
-    
+        }, 3000);
+
         return () => clearInterval(interval);
     }, [roomId, synapseBaseUrl, loading]);
 
     useEffect(() => {
-        scrollToBottom(); // Scroll to the bottom on new messages
+        scrollToBottom();
     }, [conversations]);
 
     const handleSubmit = async () => {
@@ -98,8 +95,6 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             );
 
             setPrompt('');
-
-            // Fetch messages immediately after sending
             loadMessages();
             scrollToBottom();
         } catch (err) {
@@ -112,6 +107,12 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             e.preventDefault();
             handleSubmit();
         }
+    };
+
+    // Helper function to format the Unix timestamp
+    const formatTimestamp = (timestamp: number): string => {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Format as "HH:MM"
     };
 
     if (loading) return <div>Loading messages...</div>;
@@ -131,12 +132,17 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
                                 )}
                             </div>
                             <div className="message-content">
-                                <div className="message-sender">{message.sender}</div>
+                                <div className="message-sender">
+                                    {message.displayName || message.sender}
+                                    <span className="message-timestamp">
+                                        {message.timestamp ? formatTimestamp(message.timestamp) : ''}
+                                    </span>
+                                </div>
                                 <div className="message-body">{message.body}</div>
                             </div>
                         </div>
                     ))}
-                    <div ref={messagesEndRef} /> {/* Auto-scroll anchor */}
+                    <div ref={messagesEndRef} />
                 </div>
                 <div className="input-container">
                     <textarea
