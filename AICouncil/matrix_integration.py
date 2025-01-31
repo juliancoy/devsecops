@@ -1,113 +1,194 @@
 import requests
-import webbrowser
-from typing import Dict, Optional
-from urllib.parse import urlencode, urlparse, parse_qs
+from typing import List
+
+# Keycloak credentials
+KEYCLOAK_URL = "https://keycloak.app.codecollective.us/auth"
+KEYCLOAK_USER = "ollama"
+KEYCLOAK_PASSWORD = "ollama"
+KEYCLOAK_CLIENT_ID = "synapse"  # Replace with your Keycloak client ID
+KEYCLOAK_REALM = "opentdf"  # Replace with your Keycloak realm
+
+# Ollama API endpoint
+OLLAMA_API_URL = "https://ollama.app.codecollective.us/api/generate"
 
 # Matrix credentials
 MATRIX_HOMESERVER = "https://matrix.app.codecollective.us"  # Replace with your homeserver
-REDIRECT_URL = "http://localhost:8000/callback"  # Replace with your callback URL
+ARKAVO_ADMINS_ROOM = "!ARKAVO_ADMINS_ROOM_ID:matrix.app.codecollective.us"  # Replace with the actual room ID
+
+# List of models to monitor
+MODELS = ["llama3.2", "image", "other_model"]  # Add or modify models as needed
 
 # Global Matrix access token
-matrix_access_token: Optional[str] = None
+matrix_access_token = None
 
+def get_keycloak_token() -> str:
+    """Authenticate with Keycloak and retrieve an access token."""
+    token_url = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token"
+    payload = {
+        "client_id": KEYCLOAK_CLIENT_ID,
+        "client_secret": "changeme",  # Add this if using a confidential client
+        "username": KEYCLOAK_USER,
+        "password": KEYCLOAK_PASSWORD,
+        "grant_type": "password",
+    }
 
-def get_supported_login_types() -> Optional[Dict]:
-    """
-    Fetch the supported login types from the Matrix homeserver.
-    """
-    login_url = f"{MATRIX_HOMESERVER}/_matrix/client/v3/login"
     try:
-        response = requests.get(login_url)
+        response = requests.post(token_url, data=payload)
         response.raise_for_status()
-        return response.json()
+        print("Got KC Token")
+        return response.json().get("access_token")
     except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch login types: {e}")
-        return None
+        print(f"Failed to get Keycloak token: {e}")
+        return ""
 
-
-def initiate_sso_login(redirect_url: str) -> bool:
-    """
-    Initiate SSO login by redirecting the user to the SSO interface.
-    """
-    sso_redirect_url = f"{MATRIX_HOMESERVER}/_matrix/client/v3/login/sso/redirect"
-    params = {"redirectUrl": redirect_url}
-    full_url = f"{sso_redirect_url}?{urlencode(params)}"
-
-    print(f"Opening browser for SSO login: {full_url}")
-    webbrowser.open(full_url)
-
-    # Wait for the user to complete the SSO flow
-    input("Press Enter after completing SSO login in the browser...")
-    return True
-
-
-def handle_callback(url: str) -> Optional[str]:
-    """
-    Handle the callback from the SSO provider and extract the loginToken.
-    """
-    parsed_url = urlparse(url)
-    query_params = parse_qs(parsed_url.query)
-    login_token = query_params.get("loginToken", [None])[0]
-
-    if not login_token:
-        print("No loginToken found in callback URL.")
-        return None
-
-    print("Received loginToken from SSO provider.")
-    return login_token
-
-
-def exchange_login_token_for_access_token(login_token: str) -> Optional[str]:
-    """
-    Exchange the loginToken for an access token by calling the /login endpoint.
-    """
-    login_url = f"{MATRIX_HOMESERVER}/_matrix/client/v3/login"
+def login_to_matrix(token: str) -> bool:
+    """Log in to the Matrix server using a Keycloak token."""
+    global matrix_access_token
+    print("Logging in to Matrix...")
+    login_url = f"{MATRIX_HOMESERVER}/_matrix/client/r0/login"
     payload = {
         "type": "m.login.token",
-        "token": login_token,
+        "token": token,
+        "device_id": "OllamaBot",
     }
 
     try:
         response = requests.post(login_url, json=payload)
         response.raise_for_status()
-        return response.json().get("access_token")
+        matrix_access_token = response.json().get("access_token")
+        print("Logged in successfully!")
+        return True
     except requests.exceptions.RequestException as e:
-        print(f"Failed to exchange loginToken for access token: {e}")
-        return None
+        print(f"Failed to log in: {e}")
+        print(f"Response: {response.text}")  # Print the response for debugging
+        return False
 
+def join_arkavo_admins_room() -> bool:
+    """Join the Arkavo Admins room."""
+    print(f"Joining room {ARKAVO_ADMINS_ROOM}...")
+    join_url = f"{MATRIX_HOMESERVER}/_matrix/client/r0/join/{ARKAVO_ADMINS_ROOM}"
+    headers = {
+        "Authorization": f"Bearer {matrix_access_token}",
+    }
+
+    try:
+        response = requests.post(join_url, headers=headers)
+        response.raise_for_status()
+        print(f"Joined room {ARKAVO_ADMINS_ROOM} successfully!")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to join room: {e}")
+        return False
+
+def get_last_10_messages(room_id: str) -> List[str]:
+    """Fetch the last 10 messages from a room."""
+    messages_url = f"{MATRIX_HOMESERVER}/_matrix/client/r0/rooms/{room_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {matrix_access_token}",
+    }
+    params = {
+        "dir": "b",
+        "limit": 10,
+    }
+
+    try:
+        response = requests.get(messages_url, headers=headers, params=params)
+        response.raise_for_status()
+        messages = []
+        for event in response.json().get("chunk", []):
+            if event.get("type") == "m.room.message":
+                messages.append(event.get("content", {}).get("body", ""))
+        return messages
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch messages: {e}")
+        return []
+
+def send_message_to_ollama(model: str, messages: List[str]) -> str:
+    """Send messages to the Ollama API and return the response."""
+    payload = {
+        "model": model,
+        "prompt": "\n".join(messages),
+        "max_tokens": 100,
+    }
+    try:
+        response = requests.post(OLLAMA_API_URL, json=payload)
+        response.raise_for_status()
+        return response.json().get("response", "No response from Ollama.")
+    except requests.exceptions.RequestException as e:
+        return f"Error calling Ollama API: {e}"
+
+def forward_to_arkavo_admins(message: str):
+    """Forward a message to the Arkavo Admins room."""
+    send_url = f"{MATRIX_HOMESERVER}/_matrix/client/r0/rooms/{ARKAVO_ADMINS_ROOM}/send/m.room.message"
+    headers = {
+        "Authorization": f"Bearer {matrix_access_token}",
+    }
+    payload = {
+        "msgtype": "m.text",
+        "body": message,
+    }
+
+    try:
+        response = requests.post(send_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f"Forwarded message to Arkavo Admins: {message}")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to forward message: {e}")
+
+def poll_messages():
+    """Poll for new messages in the Arkavo Admins room."""
+    sync_url = f"{MATRIX_HOMESERVER}/_matrix/client/r0/sync"
+    headers = {
+        "Authorization": f"Bearer {matrix_access_token}",
+    }
+    params = {
+        "timeout": 30000,  # 30-second timeout
+        "since": "",  # Start with no since token
+    }
+
+    while True:
+        try:
+            response = requests.get(sync_url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            params["since"] = data.get("next_batch", "")
+
+            for room_id, room_data in data.get("rooms", {}).get("join", {}).items():
+                for event in room_data.get("timeline", {}).get("events", []):
+                    if event.get("type") == "m.room.message":
+                        handle_message(room_id, event)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to sync messages: {e}")
+
+def handle_message(room_id: str, event: dict):
+    """Handle incoming messages."""
+    print(f"New message in {room_id}: {event.get('content', {}).get('body', '')}")
+    for model in MODELS:
+        if model in event.get("content", {}).get("body", "").lower():
+            print(f"Model '{model}' mentioned!")
+            messages = get_last_10_messages(room_id)
+            ollama_response = send_message_to_ollama(model, messages)
+            forward_to_arkavo_admins(f"Ollama response for '{model}': {ollama_response}")
 
 def main():
-    global matrix_access_token
-
-    # Step 1: Fetch supported login types
-    login_types = get_supported_login_types()
-    if not login_types:
+    # Get Keycloak token
+    token = get_keycloak_token()
+    if not token:
+        print("Failed to acquire Keycloak token. Exiting.")
         return
 
-    # Check if SSO is supported
-    sso_supported = any(flow.get("type") == "m.login.sso" for flow in login_types.get("flows", []))
-    if not sso_supported:
-        print("SSO login is not supported by the homeserver.")
+    # Log in to Matrix using the Keycloak token
+    if not login_to_matrix(token):
         return
 
-    # Step 2: Initiate SSO login
-    if not initiate_sso_login(REDIRECT_URL):
+    # Join the Arkavo Admins room
+    if not join_arkavo_admins_room():
         return
 
-    # Step 3: Handle the callback (simulated here by user input)
-    callback_url = input("Paste the callback URL here: ")
-    login_token = handle_callback(callback_url)
-    if not login_token:
-        return
-
-    # Step 4: Exchange the loginToken for an access token
-    matrix_access_token = exchange_login_token_for_access_token(login_token)
-    if not matrix_access_token:
-        return
-
-    print("Logged in successfully!")
-    print("Matrix access token:", matrix_access_token)
-
+    # Start polling for messages
+    print("Listening for messages...")
+    poll_messages()
 
 if __name__ == "__main__":
     main()
