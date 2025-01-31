@@ -19,9 +19,9 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const loadMessages = async () => {
+    const loadMessages = async (partial = false) => {
         try {
-            const newMessages = await fetchMessages(roomId, synapseBaseUrl);
+            const newMessages = await fetchMessages(roomId, synapseBaseUrl, partial);
 
             if (newMessages.length === 0) {
                 console.log('No new messages found.');
@@ -45,20 +45,21 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
     };
 
     useEffect(() => {
+        console.log("Room changed. Loading messages");
         setConversations([]);
         setLoading(true);
         setError(null);
-        loadMessages();
+        loadMessages(false); // Full sync when the room changes
         scrollToBottom();
     }, [roomId, synapseBaseUrl]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             if (!loading) {
-                loadMessages();
+                loadMessages(true); // Always perform a partial sync in the interval
                 console.log("Loaded messages");
             }
-        }, 3000);
+        }, 1000);
 
         return () => clearInterval(interval);
     }, [roomId, synapseBaseUrl, loading]);
@@ -95,7 +96,9 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
             );
 
             setPrompt('');
-            loadMessages();
+            setTimeout(() => {
+                loadMessages(true); // Perform a partial sync after a short delay
+            }, 500); // Wait 500ms for the server to process the message
             scrollToBottom();
         } catch (err) {
             setError(`Failed to send message: ${(err as Error).message}`);
@@ -109,10 +112,9 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
         }
     };
 
-    // Helper function to format the Unix timestamp
     const formatTimestamp = (timestamp: number): string => {
         const date = new Date(timestamp);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Format as "HH:MM"
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
 
     if (loading) return <div>Loading messages...</div>;
@@ -122,13 +124,13 @@ export const Chat: React.FC<ChatProps> = ({ roomId }) => {
         <main className="chat-container">
             <div className="chat-box">
                 <div className="responses-container">
-                    {conversations.map((message, index) => (
+                    {conversations.map((message) => (
                         <div key={message.eventId} className="chat-message">
                             <div className="message-avatar">
                                 {message.avatarUrl ? (
-                                    <img src={`${message.avatarUrl}`} alt="Avatar" />
+                                    <img src="/user_3626098.png" alt="Avatar" />
                                 ) : (
-                                    <div className="default-avatar">{message.sender[0]}</div>
+                                    <img src="/user_3626098.png" alt="Avatar" />
                                 )}
                             </div>
                             <div className="message-content">

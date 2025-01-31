@@ -133,8 +133,8 @@
 }
 
 .dropdown-menu button {
-    background: none;
-    color: black;
+    background: black;
+    color: white;
     border: none;
     padding: 8px;
     cursor: pointer;
@@ -142,5 +142,6 @@
 }
 
 .dropdown-menu button:hover {
+    color: black;
     background-color: #f0f0f0;
 }

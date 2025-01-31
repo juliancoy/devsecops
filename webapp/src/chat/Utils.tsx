@@ -117,17 +117,24 @@ export interface Message {
     eventId?: string;
 }
 
-var since = null;
-export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
+const sinceTokens = new Map<string, string>(); // Map to store `since` tokens per room
+
+export const fetchMessages = async (roomId: string, synapseBaseUrl: string, partial: boolean) => {
     const accessToken = localStorage.getItem('matrixAccessToken');
     if (!accessToken) {
         throw new Error('Access token not found.');
     }
 
     const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
-    
-    if (since) {
-        syncUrl.searchParams.append('since', since);
+
+    // Handle `since` token for the specific room
+    if (partial) {
+        const since = sinceTokens.get(roomId); // Get the `since` token for this room
+        if (since) {
+            syncUrl.searchParams.append('since', since); // Append the `since` token to the request
+        }
+    } else {
+        sinceTokens.delete(roomId); // Reset the `since` token for a full sync
     }
 
     const response = await fetch(syncUrl.toString(), {
@@ -142,13 +149,15 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
     }
 
     const data = await response.json();
-    
+
+    // Update the `since` token for this room
     if (data.next_batch) {
-        since = data.next_batch;
+        sinceTokens.set(roomId, data.next_batch);
     }
-    
+
     const roomData = data.rooms?.join?.[roomId];
     if (!roomData || !roomData.timeline?.events) {
+        console.warn(`No timeline events found for room ${roomId}`);
         return [];
     }
 
@@ -168,6 +177,7 @@ export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
             })
     );
 
+    // Sorting is optional if the API returns events in order
     messages.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
     return messages;
 };
