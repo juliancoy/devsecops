@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from atproto import Client, models
 import json
-import osa
+import os
 import pickle
 import time
 import json
@@ -9,7 +9,7 @@ import json
 app = Flask(__name__)
 feed_dict = {}
 last_updated = {}  # Timestamp of the last update
-update_interval = 300  # 5 minutes in seconds
+update_interval = 600  # 10 minutes in seconds
 
 
 # Initialize the client
