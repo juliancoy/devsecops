@@ -13,6 +13,7 @@ const Feed: React.FC = () => {
 
     useEffect(() => {
         const fetchFeedItems = async () => {
+            console.log("Fetching items")
             try {
                 const response = await axios.get('https://bsky_bridge.app.codecollective.us/');
                 console.log(response.data);

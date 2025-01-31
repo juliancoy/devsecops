@@ -1,7 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import fs from 'fs';
-import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -9,10 +7,10 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   server: {
-    allowedHosts: [`dev.$USER_WEBSITE`, `$USER_WEBSITE`],
     host: '0.0.0.0',
     hmr: false
     /*{
+      allowedHosts: [`dev.$USER_WEBSITE`, `$USER_WEBSITE`],
       host: '$USER_WEBSITE', // Use your domain for HMR in production
       protocol: 'wss', // Secure WebSocket (works with port 443)
     },*/

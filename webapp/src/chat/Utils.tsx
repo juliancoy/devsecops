@@ -2,6 +2,19 @@
 
 import { json } from "stream/consumers";
 
+export const fetchUserProfile = async (userId: string, token: string, synapseBaseUrl: string) => {
+    const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/v3/profile/${userId}`, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch user profile');
+    const data = await response.json();
+    return {
+        displayName: data.displayname || userId,
+        avatarUrl: data.avatar_url || null,
+    };
+};
+
 export const fetchRooms = async (token: string, synapseBaseUrl: string) => {
     // Fetch the list of joined rooms
     const response = await fetch(`https://${synapseBaseUrl}/_matrix/client/r0/joined_rooms`, {
@@ -99,52 +112,73 @@ export interface Message {
     sender: string;
     body: string;
     avatarUrl?: string;
+    displayName?: string;
     timestamp?: number;
-    eventId?: string; // Include event ID for deduplication
+    eventId?: string;
 }
 
-export const fetchMessages = async (roomId: string, synapseBaseUrl: string) => {
+const sinceTokens = new Map<string, string>(); // Map to store `since` tokens per room
+
+export const fetchMessages = async (roomId: string, synapseBaseUrl: string, partial: boolean) => {
     const accessToken = localStorage.getItem('matrixAccessToken');
     if (!accessToken) {
         throw new Error('Access token not found.');
     }
 
-    const response = await fetch(
-        `https://${synapseBaseUrl}/_matrix/client/v3/sync?filter=${encodeURIComponent(
-            JSON.stringify({ room: { timeline: { limit: 50 } } })
-        )}`,
-        {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
+    const syncUrl = new URL(`https://${synapseBaseUrl}/_matrix/client/v3/sync`);
+
+    // Handle `since` token for the specific room
+    if (partial) {
+        const since = sinceTokens.get(roomId); // Get the `since` token for this room
+        if (since) {
+            syncUrl.searchParams.append('since', since); // Append the `since` token to the request
         }
-    );
+    } else {
+        sinceTokens.delete(roomId); // Reset the `since` token for a full sync
+    }
+
+    const response = await fetch(syncUrl.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+    });
 
     if (!response.ok) {
         throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    const roomData = data.rooms?.join?.[roomId];
 
+    // Update the `since` token for this room
+    if (data.next_batch) {
+        sinceTokens.set(roomId, data.next_batch);
+    }
+
+    const roomData = data.rooms?.join?.[roomId];
     if (!roomData || !roomData.timeline?.events) {
-        console.log('No timeline events found for this room.');
+        console.warn(`No timeline events found for room ${roomId}`);
         return [];
     }
 
-    const messages = roomData.timeline.events
-        .filter((event: any) => event.type === 'm.room.message')
-        .map((event: any) => ({
-            sender: event.sender,
-            body: event.content?.body || '[Unknown Message]',
-            avatarUrl: event.content?.avatar_url || null,
-            timestamp: event.origin_server_ts || 0,
-            eventId: event.event_id, // Include event ID for deduplication
-        }));
+    const messages = await Promise.all(
+        roomData.timeline.events
+            .filter((event: any) => event.type === 'm.room.message')
+            .map(async (event: any) => {
+                const profile = await fetchUserProfile(event.sender, accessToken, synapseBaseUrl);
+                return {
+                    sender: event.sender,
+                    body: event.content?.body || '[Unknown Message]',
+                    avatarUrl: profile.avatarUrl,
+                    displayName: profile.displayName,
+                    timestamp: event.origin_server_ts || 0,
+                    eventId: event.event_id,
+                };
+            })
+    );
 
-    messages.sort((a: Message, b: Message) => (a.timestamp || 0) - (b.timestamp || 0));
-
+    // Sorting is optional if the API returns events in order
+    messages.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
     return messages;
 };
 
