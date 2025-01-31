@@ -11,6 +11,7 @@ import CreateRoom from './chat/CreateRoom';
 import Profile from './Profile';
 import Room from './chat/Room';
 import ChatPage from './chat/ChatPage';
+import APIChat from './APIChat';
 import MatrixAuthForward from './chat/MatrixAuthForward';
 import Settings from './Settings';
 //import VideoRoom from './VideoRoom';
@@ -36,7 +37,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => 
         <div id="fullpage" className={darkMode ? 'dark-mode' : ''}>
             <Navbar />
             <Routes>
-                <Route path="/" element={<Feed />} /> {/* Home route for the feed */}
+                <Route path="/" element={<ChatPage />} /> {/* Home route for the feed */}
                 <Route path="/privacy" element={<Privacy />} /> {/* Privacy page route */}
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/chat" element={<ChatPage />} />
@@ -47,6 +48,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => 
                 <Route path="/video" element={<VideoFeed />} />
                 <Route path="/explore" element={<ExploreRooms />} />
                 <Route path="/tdf" element={<TDF />} />
+                <Route path="/apichat" element={<APIChat />} />
                 <Route path="/chatauth" element={<MatrixAuthForward />} />
                 {/*<Route path="/video" element={<VideoRoom />} />
                 <Route path="/settings" element={<Settings />} />

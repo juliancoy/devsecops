@@ -1,5 +1,10 @@
-# DevSecOps
+[![Matrix Room](https://img.shields.io/badge/Matrix-Join%20Chat-orange)](https://matrix.to/#/!NRTafywrMGISLMcipa:matrix.org?via=matrix.org)
+
+# Arkavo DevSecOps
+## The Official GitHub Repository for Arkavo's Web Backend and React App
 DevSecOps LangGraph
+
+Note: Users interested in modifying the Frontend to represent your own brand should see the [WebApp Readme](webapp/README.md)
 
 ## Introduction
 This repository is an amalgamation of best-in-class tools in Security and AI, arranged to work together with minimum configuration. Practically it serves as the entire backend for the Arkavo forum. 
@@ -10,6 +15,7 @@ Components of this repo include
 - **OpenTDF** - The best-in-class Attribute-Based Access Control (ABAC) addendum to Keycloak
 - **Org** - Handles needs of organizations using Arkavo forum - Events, Communications, Permissions
 - **Nginx-Proxy** - Serves the other services as HTTPS  
+- **Synapse** - The best-in-class open-source Instant Messenger solution
 - **AICouncil** - Recommends improvements to this repo in real time
 
 ## System Diagram

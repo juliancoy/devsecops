@@ -22,7 +22,6 @@ const ChatPage: React.FC = () => {
     const accessTokenRef = useRef<string | null>(null);
     const synapseBaseUrl = import.meta.env.VITE_SYNAPSE_BASE_URL;
 
-
     const handleTokenExpiry = () => {
         localStorage.removeItem('matrixAccessToken');
         navigate('/chatauth');
@@ -80,7 +79,6 @@ const ChatPage: React.FC = () => {
     return (
         <div className="chat-page">
             <div className="sidebar">
-
                 <div className="rooms-list">
                     <h4>Rooms</h4>
                     {rooms.map(({ roomId, alias, name }) => (
