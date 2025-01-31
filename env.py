@@ -49,7 +49,15 @@ except requests.RequestException as e:
 KEYCLOAK_BASE_URL = "keycloak." + USER_WEBSITE
 KEYCLOAK_HOST = "https://" + KEYCLOAK_BASE_URL
 
+MODELS_TO_PULL = [
+    "llama3.2",
+    "ALIENTELLIGENCE/sigmundfreud",
+    "phi3",
+    "deepseek-coder:6.7b",  # "omercelik/mistral-small-coder
+]
+
 OPENTDF_BASE_URL = "opentdf." + USER_WEBSITE
+DEEPSEEK_JANUS_BASE_URL = "deepseek_janus." + USER_WEBSITE
 OLLAMA_BASE_URL = "ollama." + USER_WEBSITE
 ORG_BASE_URL = "org." + USER_WEBSITE
 SYNAPSE_BASE_URL = "matrix." + USER_WEBSITE
@@ -331,8 +339,8 @@ webapp = dict(
         "npm install -g nodemon && "
         "nodemon --watch . --exec 'npm run dev'\""
     ),
-    #user=uid,
-    #group_add=[gid],
+    # user=uid,
+    # group_add=[gid],
 )
 
 go_installs_dir = os.path.join(
@@ -399,6 +407,7 @@ synapsedb["volumes"] = {
 # Base configuration
 ollama = {
     "name": "ollama",
+    "ports": {"11434/tcp": 11434},
     "network": NETWORK_NAME,
     "detach": True,  # Runs the container in detached mode
     "volumes": {
@@ -419,10 +428,27 @@ ollama = {
     "image": "ollama/ollama",
 }
 
+# Base configuration
+deepseek_janus = {
+    "name": "deepseek_janus",
+    "ports": {"8000/tcp": 8000},
+    "network": NETWORK_NAME,
+    "detach": True,  # Runs the container in detached mode
+    "volumes": {
+        os.path.join(current_dir, "huggingface"): {
+            "bind": "/root/.cache/huggingface",
+            "mode": "rw",
+        },
+    },
+    "environment": {
+        "MODEL_NAME": "deepseek-ai/Janus-Pro-1B",
+    },
+    "image": "julianfl0w/janus:latest",
+}
 
 sglang = dict(
-    image= "lmsysorg/sglang:latest",
-    name= "sglang",
+    image="lmsysorg/sglang:latest",
+    name="sglang",
     volumes={
         os.path.join(current_dir, "huggingface"): {
             "bind": "/root/.cache/huggingface",
@@ -434,25 +460,28 @@ sglang = dict(
     network=NETWORK_NAME,
     # Uncomment if using port mapping instead of host mode
     # "ports": {"30000/tcp": 30000},
-    environment= {
+    environment={
         "HF_TOKEN": "<secret>",
         # Uncomment if using modelscope
         # "SGLANG_USE_MODELSCOPE": "true"
     },
-    entrypoint= "python3 -m sglang.launch_server",
-    command= [
-        "--model-path", "meta-llama/Llama-3.1-8B-Instruct",
-        "--host", "0.0.0.0",
-        "--port", "30000"
+    entrypoint="python3 -m sglang.launch_server",
+    command=[
+        "--model-path",
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "30000",
     ],
-    ulimits= [
+    ulimits=[
         {"Name": "memlock", "Soft": -1, "Hard": -1},
-        {"Name": "stack", "Soft": 67108864, "Hard": 67108864}
+        {"Name": "stack", "Soft": 67108864, "Hard": 67108864},
     ],
-    ipc_mode= "host",
+    ipc_mode="host",
     healthcheck={
         "test": ["CMD-SHELL", "curl -f http://localhost:30000/health || exit 1"]
-    }
+    },
 )
 
 from docker.types import DeviceRequest
@@ -462,12 +491,14 @@ if util.check_nvidia_gpu():
     drequests = DeviceRequest(count=1, capabilities=[["gpu"]], driver="nvidia")
     ollama["device_requests"] = [drequests]
     sglang["device_requests"] = [drequests]
+    deepseek_janus["device_requests"] = [drequests]
 
 # Check for AMD GPU
 elif util.check_amd_gpu():
     drequests = DeviceRequest(count=1, capabilities=[["gpu"]], driver="amd")
     ollama["device_requests"] = [drequests]
     sglang["device_requests"] = [drequests]
+    deepseek_janus["device_requests"] = [drequests]
 
 # BLUESKY CRYPTO SETUP
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -519,8 +550,12 @@ bluesky_bridge = dict(
 )
 
 bsky_fyp = copy.copy(bluesky_bridge)
-bsky_fyp["name"]="bsky_fyp"
-bsky_fyp["command"]=["sh", "-c", "pip install atproto flask && python serve_vertical_fyp.py"]
+bsky_fyp["name"] = "bsky_fyp"
+bsky_fyp["command"] = [
+    "sh",
+    "-c",
+    "pip install atproto flask && python serve_vertical_fyp.py",
+]
 
 bluesky = dict(
     image="ghcr.io/bluesky-social/pds:latest",
