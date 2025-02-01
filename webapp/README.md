@@ -72,13 +72,14 @@ export default defineConfig({
 });
 ```
 
-8. Run in Development Mode
+8. Install Node 23 on your machine (or use Docker)
+9. Run in Development Mode
 ```bash
 npm install
 npm run dev
 ```
 
-9. Optional: Run in Production Mode
+10. Optional: Run in Production Mode
 ```bash
 npm install 
 npm run build
