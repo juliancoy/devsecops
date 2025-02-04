@@ -227,6 +227,10 @@ keycloak = {
             "bind": "/opt/keycloak/keycloak-startup.sh",
             "mode": "ro",  # Read-only
         },
+        os.path.join(keycloak_dir, "theme"): {
+            "bind": "/opt/keycloak/themes/arkavo",
+            "mode": "rw",  # Read-only
+        },
     },
     "environment": {
         "KC_PROXY": "edge",
@@ -256,6 +260,9 @@ keycloak = {
         "KC_HTTPS_CERTIFICATE_FILE": "/etc/x509/tls/localhost.crt",
         "KC_HTTPS_CERTIFICATE_KEY_FILE": "/etc/x509/tls/localhost.key",
         "KC_HTTPS_CLIENT_AUTH": "request",
+        "KC_SPI_THEME_STATIC_MAX_AGE": -1,
+        "KC_SPI_THEME_CACHE_THEMES": False,
+        "KC_SPI_THEME_CACHE_TEMPLATES": False,
     },
 }
 
@@ -383,6 +390,10 @@ synapse = dict(
     restart_policy={"Name": "always"},
     volumes={
         os.path.join(current_dir, "synapse"): {"bind": "/data", "mode": "rw"},
+        os.path.join(current_dir, "synapse", "templates"): {
+            "bind": "/usr/local/lib/python3.12/site-packages/synapse/res/templates",
+            "mode": "rw",
+        },
     },
     healthcheck={
         "test": ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"],
