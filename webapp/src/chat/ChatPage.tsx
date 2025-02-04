@@ -5,6 +5,7 @@ import '../css/ChatPage.css';
 import { useKeycloak } from '@react-keycloak/web';
 import { useNavigate } from 'react-router-dom';
 import { Chat } from './Chat';
+import { handleLogin } from './ChatAuth';
 import { fetchRooms, fetchPeople, joinRoom } from './Utils'; // Import joinRoom function
 
 const ChatPage: React.FC = () => {
@@ -24,7 +25,7 @@ const ChatPage: React.FC = () => {
 
     const handleTokenExpiry = () => {
         localStorage.removeItem('matrixAccessToken');
-        navigate('/chatauth');
+        handleLogin();
     };
 
     const handleRoomSelect = async (roomId: string) => {
@@ -56,7 +57,7 @@ const ChatPage: React.FC = () => {
                     setError((error as Error).message);
                 }
             } else {
-                navigate('/chatauth');
+                handleLogin();
             }
             setLoading(false);
         };

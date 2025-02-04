@@ -53,7 +53,7 @@ export const loginAndFetchProfile = async (
             const userInfo = await response.json();
             const userProfile: UserProfile = {
                 name: userInfo.name || userInfo.preferred_username || 'User',
-                picture: userInfo.picture || '/default-profile.png', // Default if picture is missing
+                picture: userInfo.picture || 'user_3626098.png', // Default if picture is missing
             };
 
             localStorage.setItem('userProfile', JSON.stringify(userProfile));

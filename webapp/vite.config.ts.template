@@ -8,9 +8,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    hmr: false
+    hmr: false,
+    allowedHosts: [`dev.$USER_WEBSITE`, `$USER_WEBSITE`]
     /*{
-      allowedHosts: [`dev.$USER_WEBSITE`, `$USER_WEBSITE`],
       host: '$USER_WEBSITE', // Use your domain for HMR in production
       protocol: 'wss', // Secure WebSocket (works with port 443)
     },*/
