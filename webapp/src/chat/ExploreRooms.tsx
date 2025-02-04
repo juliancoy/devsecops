@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../css/ExploreRooms.css';
 import { useNavigate } from 'react-router-dom';
 import { useKeycloak } from '@react-keycloak/web';
+import { handleLogin } from './ChatAuth';
 import { fetchRooms, fetchPublicRooms, joinRoom } from './Utils'; // Import necessary functions
 
 const ExploreRooms: React.FC = () => {
@@ -36,7 +37,7 @@ const ExploreRooms: React.FC = () => {
     const handleJoinRoom = async (roomId: string) => {
         const accessToken = localStorage.getItem('matrixAccessToken');
         if (!accessToken) {
-            navigate('/chatauth');
+            handleLogin();
             return;
         }
 
@@ -59,7 +60,7 @@ const ExploreRooms: React.FC = () => {
             const storedAccessToken = localStorage.getItem('matrixAccessToken');
 
             if (!storedAccessToken) {
-                navigate('/chatauth');
+                handleLogin();
                 return;
             }
 

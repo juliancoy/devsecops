@@ -12,7 +12,6 @@ import Profile from './Profile';
 import Room from './chat/Room';
 import ChatPage from './chat/ChatPage';
 import APIChat from './APIChat';
-import MatrixAuthForward from './chat/MatrixAuthForward';
 import Settings from './Settings';
 //import VideoRoom from './VideoRoom';
 //import AIView from './AIView';
@@ -50,7 +49,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ darkMode, onToggleDarkMode }) => 
                 <Route path="/explore" element={<ExploreRooms />} />
                 <Route path="/tdf" element={<TDF />} />
                 <Route path="/apichat" element={<APIChat />} />
-                <Route path="/chatauth" element={<MatrixAuthForward />} />
                 {/*<Route path="/video" element={<VideoRoom />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/aiview" element={<AIView />} />
