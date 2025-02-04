@@ -51,7 +51,9 @@ oidc_providers:
       config:
         localpart_template: "{{ user.preferred_username }}"
         display_name_template: "{{ user.name }}"
-    backchannel_logout_enabled: true # Optional
+        auto_register: true
+        confirm_localpart: false
+    backchannel_logout_enabled: true
 
 # Listeners
 listeners:

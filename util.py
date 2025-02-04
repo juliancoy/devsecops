@@ -37,6 +37,20 @@ def substitutions(currdir, env):
             with open(newFile, 'w+') as f:
                 f.write(templateText)
 
+        if currdir.endswith(".default"):
+            newFile = currdir.replace(".default","")
+            if os.path.exists(newFile):
+                return
+            print("Applying substitutions to " + currdir)
+            with open(currdir, 'r') as f:
+                templateText = f.read()
+            for k, v in vars(env).items():
+                templateText = templateText.replace("$"+k, str(v))
+                newFile = newFile.replace("$"+k, str(v)) # also templetize the filename (!)
+            print(f"Writing to {newFile}")
+            with open(newFile, 'w+') as f:
+                f.write(templateText)
+
         if currdir.endswith(".copy"):
             newFile = currdir.replace(".copy","")
             if not os.path.exists(newFile):
