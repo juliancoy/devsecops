@@ -4,8 +4,10 @@ VITE_BRAND_NAME = "arkavo"
 BRAND_COLOR_DARK = "#f99742"
 BRAND_COLOR_LIGHT = "#F4A460"
 USER_WEBSITE = "localhost"
+BACKEND_LOCATION = "app.codecollective.us"
 PROTOCOL_USER_WEBSITE = "https://" + USER_WEBSITE
 USER_EMAIL = "youremail@example.com"
+VITE_LOGO_URL="/favicon.png"
 KEYCLOAK_ADMIN_PASSWORD = "changeme"
 SERVICES_TO_RUN = [
     "keycloak",    # Identity and Access Management (accounts)
@@ -24,7 +26,7 @@ SERVICES_TO_RUN = [
 
 distinguisher = ""  # If you are running multiple deployments on the same machine, you can distinguish them here
 KEYCLOAK_PORT = ""  # if applicable
-KEYCLOAK_INTERNAL_URL = "keycloak:8888"
+KEYCLOAK_INTERNAL_URL = "keycloak." + BACKEND_LOCATION
 SYNAPSE_CLIENT_SECRET = "changeme"
 
 # OAUTH Config
