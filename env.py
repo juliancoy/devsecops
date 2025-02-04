@@ -297,7 +297,7 @@ nginx = dict(
 )
 
 webapp_build = dict(
-    image="node:22",
+    image="node:23",
     detach=True,  # Runs the container in detached mode
     name=f"webapp_build",
     network=NETWORK_NAME,

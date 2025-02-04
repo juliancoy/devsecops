@@ -2,6 +2,7 @@ body, input, select, textarea {
   font-family: "Inter", "Helvetica", "Arial", sans-serif;
   font-size: 14px;
   color: #17191C;
+  background-color: #ff8800;
 }
 
 header, footer {
