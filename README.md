@@ -1,3 +1,5 @@
+![600_525601074](https://github.com/user-attachments/assets/2c8473b5-19f7-4d77-a16d-8514967b956b)
+
 [![Matrix Room](https://img.shields.io/badge/Matrix-Join%20Chat-orange)](https://matrix.to/#/!NRTafywrMGISLMcipa:matrix.org?via=matrix.org)
 
 # Arkavo DevSecOps
