@@ -1,6 +1,5 @@
 media
 homeserver.yaml
-registration*
 *.log.config
 
 codecollective.signing.key
